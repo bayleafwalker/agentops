@@ -402,6 +402,18 @@ class Probe:
     def mode(self) -> str:
         return "replay" if self.replay else "live"
 
+    def observation_date(self):
+        if self.replay:
+            stamps = []
+            for path in self.replay.glob("*.json"):
+                try:
+                    stamp = json.loads(path.read_text(encoding="utf-8")).get("observed_at")
+                    if stamp: stamps.append(datetime.fromisoformat(stamp.replace("Z", "+00:00")))
+                except (OSError, ValueError, AttributeError):
+                    continue
+            if stamps: return max(stamps).date()
+        return datetime.now(UTC).date()
+
     def _fixture(self, key: str) -> Path:
         return (self.replay or self.record) / f"{re.sub(r'[^A-Za-z0-9_.-]', '_', key)}.json"
 
@@ -1557,40 +1569,93 @@ def collect_vuoro_cloud(probe: Probe, *, fetch: bool,
                        "sprintctl_version": packages.get("sprintctl")}
     env["operator_self_use"] = evaluate_operator_self_use(
         self_use_record, desired_release_ready=desired.get("release_ready"),
-        today=datetime.now(UTC).date(), pinned_pair=pinned_pair)
+        today=probe.observation_date(), pinned_pair=pinned_pair)
     return env
 
 
 OPERATOR_SELF_USE_RECORD = ROOT / "environment-record/vuoro-cloud.operator-self-use.json"
+OPERATOR_SCOPE = {"environment_id": "vuoro-cloud", "workspace_id": "01M3ABJS1QW0Q6BNDCHP0DDTYF",
+                  "workspaces": ["kotona"], "operator_owned": True, "host_owner": "operator"}
+
+
+def _report_observation_date():
+    """Use the report's replay timestamp where available, otherwise current UTC date."""
+    return datetime.now(UTC).date()
+
+
+def _valid_iso_date(value):
+    try: datetime.strptime(value, "%Y-%m-%d")
+    except (TypeError, ValueError): return False
+    return True
 
 
 def _load_operator_self_use_record() -> dict[str, Any]:
+    from scripts import schema_check
+    import hashlib
     try:
-        value = json.loads(OPERATOR_SELF_USE_RECORD.read_text(encoding="utf-8"))
-        return value if isinstance(value, dict) else {}
-    except (OSError, json.JSONDecodeError):
-        return {}
+        raw = OPERATOR_SELF_USE_RECORD.read_bytes()
+        value = json.loads(raw)
+        schema = json.loads((ROOT / "environment-record/vuoro-cloud-operator-self-use.schema.json").read_text())
+        errors = schema_check.validate(value, schema)
+        if isinstance(value, dict) and not errors:
+            if not _valid_iso_date(value.get("reviewed_on")) or not _valid_iso_date(value.get("pat", {}).get("expires_on")):
+                return {"_record_error": "record has a missing or invalid ISO date"}
+            value["_record_sha256"] = hashlib.sha256(raw).hexdigest()
+            return value
+        value_hash = hashlib.sha256(raw).hexdigest() if "raw" in locals() else hashlib.sha256(b"").hexdigest()
+        return {"_record_error": "record does not match schema: " + "; ".join(errors), "_record_sha256": value_hash}
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        return {"_record_error": "record missing" if not OPERATOR_SELF_USE_RECORD.exists() else f"record unreadable: {exc}",
+                "_record_sha256": hashlib.sha256(b"").hexdigest()}
 
 
 def evaluate_operator_self_use(record: dict[str, Any], *, desired_release_ready: dict[str, Any] | None,
                                today: Any, pinned_pair: dict[str, Any] | None = None) -> dict[str, Any]:
     """Evaluate the deliberately narrow operator-owned workspace qualification."""
     import datetime as _datetime
-    today = _datetime.date.fromisoformat(str(today)) if isinstance(today, str) else today
+    def parsed(value):
+        try:
+            if not isinstance(value, str) or not value: return None
+            return _datetime.date.fromisoformat(value)
+        except (TypeError, ValueError): return None
+    today = parsed(str(today)) if not isinstance(today, _datetime.date) else today
+    today = today or _datetime.date.today()
+    record = record if isinstance(record, dict) else {}
+    record.setdefault("_record_sha256", __import__("hashlib").sha256(json.dumps(record, sort_keys=True, default=str).encode()).hexdigest())
+    if record.get("_record_error"):
+        reason = record["_record_error"]
+        status, fail, void = "not_met", reason, None
+        expires = today.isoformat()
+        return _self_use_result(status, expires, reason, None, void)
     pat = record.get("pat", {})
     scope = record.get("scope", {})
     refs = record.get("evidence_refs", {})
     composition = refs.get("composition_qualification")
-    composition_matches = (isinstance(composition, dict) and bool(composition.get("ref"))
-                           and pinned_pair is not None and composition.get("pinned_pair") == pinned_pair)
+    comp_path = _evidence_path(composition.get("ref")) if isinstance(composition, dict) else None
+    comp_doc = _read_json_evidence(comp_path)
+    comp_pins = comp_doc.get("pinned_pair", comp_doc.get("pins", {})) if comp_doc else {}
+    composition_matches = (comp_path is not None and comp_doc is not None and isinstance(pinned_pair, dict)
+                           and all(pinned_pair.get(k) for k in ("tenant_runtime_pin", "sprintctl_version"))
+                           and composition.get("pinned_pair") == pinned_pair and comp_pins == pinned_pair)
     expiry = pat.get("expires_on", "")
-    reviewed = record.get("reviewed_on", "")
+    reviewed = parsed(record.get("reviewed_on"))
+    expiry_date = parsed(expiry)
+    obs_path = _evidence_path(refs.get("restored_observation"))
+    obs_doc = _read_json_evidence(obs_path)
+    observation = obs_doc if obs_doc and obs_doc.get("status") == "restored" and parsed(obs_doc.get("date")) else None
+    rehearsal_path = _evidence_path(refs.get("cutover_rehearsal"))
+    rehearsal_doc = _read_json_evidence(rehearsal_path)
+    rehearsal_date = parsed(rehearsal_doc.get("date")) if rehearsal_doc else None
     void = None
-    if record.get("revoked"):
+    if scope != OPERATOR_SCOPE:
+        void = "record scope differs from fixed kotona scope"
+    elif record.get("revoked"):
         void = "record marked revoked"
     elif pat.get("workspace") != "kotona" or pat.get("authorities") != ["work:read"]:
         void = "PAT workspace or authority scope changed"
-    elif expiry and today > _datetime.date.fromisoformat(expiry):
+    elif not expiry_date:
+        void = "PAT expiry date is missing or invalid"
+    elif today > expiry_date:
         void = "PAT is past expiry"
     elif record.get("pat_reissued"):
         void = "PAT reissued without record update"
@@ -1599,43 +1664,90 @@ def evaluate_operator_self_use(record: dict[str, Any], *, desired_release_ready:
         void = "scope includes a workspace not owned by the operator"
     elif desired_release_ready and desired_release_ready.get("status") == "known" and desired_release_ready.get("value") is True:
         void = "release_ready is true"
-    elif reviewed and (today - _datetime.date.fromisoformat(reviewed)).days > 90:
+    elif not reviewed:
+        void = "reviewed_on date is missing or invalid"
+    elif reviewed > today:
+        void = "reviewed_on is in the future"
+    elif (today - reviewed).days > 90:
         void = "reviewed_on is older than 90 days"
     elif (record.get("tenant_runtime_pin_changed_after_composition") or
           (isinstance(composition, dict) and pinned_pair and composition.get("pinned_pair") != pinned_pair)):
         void = "tenant runtime or Sprintctl pin changed after composition qualification"
     elif record.get("vuoro_shared_fallback") is False or record.get("fallback_environment") not in (None, "vuoro-shared"):
         void = "vuoro-shared removed or demoted as fallback"
-    elif (not record.get("latest_restored_observation") and record.get("no_restored_observation_since")
-          and (today - _datetime.date.fromisoformat(record["no_restored_observation_since"])).days >= 30):
+    elif not observation and _no_restored_observation_age(refs, today):
         void = "no restored observation for at least 30 days"
-    elif record.get("rehearsal_on") and record.get("latest_restored_observation") and record["rehearsal_on"] > record["latest_restored_observation"].get("date", ""):
+    elif rehearsal_date and observation and rehearsal_date > parsed(observation.get("date")):
         void = "a rehearsal is newer than the latest restored observation"
-    elif (record.get("latest_restored_observation") and
-          (today - _datetime.date.fromisoformat(record["latest_restored_observation"]["date"])).days >= 30):
+    elif observation and (today - parsed(observation["date"])).days >= 30:
         void = "restored observation is at least 30 days old"
 
     checks = [
         (record.get("profile_valid") is True, "B1 workstation vuoro.cloud profile does not pass validation"),
-        (refs.get("cutover_plan") == "docs/plans/2026-11-08-vuoro-cloud-record-family-cutover.md" and record.get("cutover_open_rows") == [], "B2 cutover plan has open in-scope rows"),
+        (_cutover_rows(refs.get("cutover_plan")) == [], "B2 cutover plan has open in-scope rows"),
         (composition_matches,
          "B3 composition qualification receipt is absent for the pinned pair"),
-        (bool(record.get("latest_restored_observation")) and bool(record.get("rehearsal_on")) and record["latest_restored_observation"].get("status") == "restored" and record["latest_restored_observation"].get("date", "") > record.get("rehearsal_on", ""), "B4 restored backup observation after cutover rehearsal is absent"),
-        (bool(expiry) and _datetime.date.fromisoformat(expiry) >= today and (_datetime.date.fromisoformat(expiry) - _datetime.date.fromisoformat(reviewed)).days <= 30, "B5 PAT expiry is not within 30 days of review"),
+        (observation is not None and rehearsal_date is not None and parsed(observation["date"]) > rehearsal_date, "B4 restored backup observation after cutover rehearsal is absent"),
+        (expiry_date is not None and reviewed is not None and expiry_date >= today and (expiry_date - reviewed).days <= 30, "B5 PAT expiry is not within 30 days of review"),
         (record.get("vuoro_shared_fallback") is True and record.get("fallback_environment") == "vuoro-shared", "B6 vuoro-shared is not declared as fallback"),
         (desired_release_ready is not None and desired_release_ready.get("status") == "known" and desired_release_ready.get("value") is False, "B7 release_ready is not known false"),
     ]
     status = "void" if void else "not_met" if not all(ok for ok, _ in checks) else "met"
     first_failure = next((message for ok, message in checks if not ok), None)
-    expires = expiry or "unknown"
-    label = (f"operator-self-use: {status}. NOT release_ready. Valid only for operator-owned workspace(s) kotona; "
-             f"grants nothing to other users, tenants or hosts. release_ready=false. Expires {expires} (PAT) / "
-             "void if any condition in profile record lapses.")
-    if status == "not_met":
-        label += f"\noperator-self-use: not_met ({first_failure}). release_ready=false."
-    return {"status": status, "not_release_ready": True, "scope": scope,
+    expiry_candidates = [d for d in (expiry_date, reviewed + _datetime.timedelta(days=90) if reviewed else None,
+                                     parsed(observation["date"]) + _datetime.timedelta(days=30) if observation else None) if d]
+    expires_date = min(expiry_candidates) if expiry_candidates else None
+    expires = expires_date.isoformat() if expires_date else "unknown"
+    if status == "void":
+        release_value = desired_release_ready.get("value") if isinstance(desired_release_ready, dict) else None
+        label = f"operator-self-use: void (release_ready={json.dumps(release_value)}; {void}). NOT release_ready."
+    elif status == "not_met":
+        label = f"operator-self-use: not_met ({first_failure}). NOT release_ready. release_ready=false."
+    else:
+        governs = "PAT expiry" if expires_date == expiry_date else "review age" if reviewed and expires_date == reviewed + _datetime.timedelta(days=90) else "restored observation age"
+        label = f"operator-self-use: met. NOT release_ready. Valid only for operator-owned workspace(s) kotona; grants nothing to other users, tenants or hosts. release_ready=false. Expires {expires} ({governs})."
+    return {"status": status, "not_release_ready": True, "scope": OPERATOR_SCOPE,
+            "record_sha256": record["_record_sha256"],
             "expires_on": expires, "label": label, **({"first_failing_check": first_failure} if first_failure else {}),
             **({"void_reason": void} if void else {})}
+
+
+def _evidence_path(ref):
+    if not isinstance(ref, str) or not ref: return None
+    path = (ROOT / ref).resolve()
+    try: path.relative_to(ROOT.resolve())
+    except ValueError: return None
+    return path if path.is_file() else None
+
+
+def _read_json_evidence(path):
+    try: return json.loads(path.read_text(encoding="utf-8")) if path else None
+    except (OSError, json.JSONDecodeError): return None
+
+
+def _cutover_rows(ref):
+    path = _evidence_path(ref)
+    if not path: return None
+    import re
+    match = re.search(r"<!-- operator-self-use-open-rows:v1\s*(\[.*?\])\s*-->", path.read_text(encoding="utf-8"), re.S)
+    try: return json.loads(match.group(1)) if match else None
+    except (json.JSONDecodeError, AttributeError): return None
+
+
+def _no_restored_observation_age(refs, today):
+    path = _evidence_path(refs.get("restored_observation"))
+    doc = _read_json_evidence(path)
+    day = doc.get("date") if doc and doc.get("status") != "restored" else None
+    return bool(_valid_iso_date(day) and (today - datetime.strptime(day, "%Y-%m-%d").date()).days >= 30)
+
+
+def _self_use_result(status, expires, reason, first_failure, void):
+    label = f"operator-self-use: {status} ({reason}). NOT release_ready."
+    out = {"status": status, "not_release_ready": True, "scope": OPERATOR_SCOPE,
+           "expires_on": expires, "label": label, "record_sha256": "0" * 64}
+    if first_failure: out["first_failing_check"] = first_failure
+    if void: out["void_reason"] = void
+    return out
 
 
 def _runtime_digest(value: Any) -> str:

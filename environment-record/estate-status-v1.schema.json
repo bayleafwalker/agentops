@@ -107,7 +107,7 @@
         "receipts": {"$ref": "#/$defs/facts"},
         "operator_self_use": {
           "type": "object",
-          "required": ["status", "not_release_ready", "scope", "expires_on", "label"],
+          "required": ["status", "not_release_ready", "scope", "expires_on", "label", "record_sha256"],
           "properties": {
             "status": {"enum": ["met", "not_met", "void"]},
             "not_release_ready": {"const": true},
@@ -125,6 +125,7 @@
             },
             "expires_on": {"type": "string", "format": "date"},
             "label": {"type": "string", "minLength": 1},
+            "record_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
             "first_failing_check": {"type": "string", "minLength": 1},
             "void_reason": {"type": "string", "minLength": 1}
           },

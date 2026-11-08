@@ -33,6 +33,8 @@
             }
           }
         }
+        ,"restored_observation": {"type": "string", "minLength": 1}
+        ,"cutover_rehearsal": {"type": "string", "minLength": 1}
       }
     },
     "cutover_open_rows": {"type": "array", "items": {"type": "string"}},
