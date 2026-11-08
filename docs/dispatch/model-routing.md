@@ -1,5 +1,55 @@
 # Model Routing
 
+## Native foreground worker wrapper
+
+Use `agentops dispatch run` when a coordinator needs a bounded worker to run
+without interactive prompts and to wake the coordinator on completion. Start the
+command as a foreground harness background task; the wrapper does not daemonize
+or create a second task system. The task's completion is the wakeup signal, and
+`--status-file` is the coordinator-readable result path.
+
+Example (Codex):
+
+```sh
+agentops dispatch run --worker codex --model gpt-6-luna \
+  --worktree /path/to/worktree --status-file /path/to/run-status.json \
+  'Implement the bounded outcome; run the named checks. If blocked by an escalation condition, stop and print DISPATCH_OUTCOME: ESCALATED and ESCALATION_REASON: <reason>.'
+```
+
+OpenCode Go uses an explicit provider model and requires the caller's boundary
+attestation:
+
+```sh
+agentops dispatch run --worker opencode --model opencode-go/deepseek-v4.1-flash \
+  --data-boundary-attested --worktree /path/to/worktree \
+  --status-file /path/to/run-status.json 'Public-repository bounded outcome…'
+```
+
+Before setting `--data-boundary-attested`, check the rules below and confirm the
+prompt and worktree content are cleared for that external provider. Do not send
+queue/work contracts, authority or effect designs, protected/private repository
+content, served records, handoffs, telemetry or customer data.
+
+The wrapper validates the selected CLI's help output before starting work.
+Codex is invoked with `codex exec -s workspace-write --model MODEL`; it does not
+use the rejected `--full-auto` flag. OpenCode uses `opencode run --model MODEL`.
+Missing CLIs or unsupported required flags fail before the worker starts, with
+a diagnostic. Worker exit zero writes `done`, nonzero writes `failed`, and the
+explicit `DISPATCH_OUTCOME: ESCALATED` marker always writes `escalated` even if
+the process exits zero. Include `ESCALATION_REASON: …` for a concise reason.
+
+The atomic JSON status record (`agentops-dispatch-run/v1`) contains outcome,
+exit code, branch, head SHA, dirty flag, a bounded/redacted final output tail,
+escalation reason, UTC start/end timestamps, model and worker. Put it outside
+the worktree if the record should not make that worktree dirty. The wrapper
+does not pass extra network/effect grants or credentials, and stores no
+environment dump or secret values. The worker retains only its native sandbox
+and the caller-selected worktree.
+
+Optional follow-up: a separate watcher may register Vuoro run records and
+report outcomes via `register_run` / `report_outcome`; this wrapper intentionally
+does not integrate with Vuoro.
+
 `model-routing.json` is the machine-readable source of truth for dispatch model aliases. Repositories may use provider-qualified model strings in runtime configuration, but those values must resolve to an alias in this policy.
 
 ## Alias Policy

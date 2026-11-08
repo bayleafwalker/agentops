@@ -30,7 +30,7 @@ fi
 
 topic="$1"; shift
 script=""
-two_word_topics="estate"  # topics whose second word selects scripts/<topic>_<word>.py
+two_word_topics="estate dispatch"  # topics whose second word selects scripts/<topic>_<word>.py
 dir="$root/scripts"
 if [[ -r "$dir/${topic//-/_}.py" ]]; then
   script="$dir/${topic//-/_}.py"
