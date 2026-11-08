@@ -84,6 +84,33 @@ def test_vuoro_cloud_rejects_any_extra_authority(tmp_path: Path) -> None:
         validator.validate_profile(path, environment)
 
 
+@pytest.mark.parametrize("profile_id", ["workstation-mi1-native-vuoro-shared", "workstation-inbox-native-vuoro-shared"])
+def test_vuoro_cloud_cannot_borrow_native_evidence_authorities(tmp_path: Path, profile_id: str) -> None:
+    environment = validator.validate_environment(ROOT / "environment-record/workstation-linux.vuoro-shared.json")
+    profile = json.loads(_profile("workstation-vuoro-cloud.json").read_text())
+    profile["id"] = profile_id
+    profile["required_authorities"] = ["work:read", "work:evidence"]
+    path = tmp_path / "cloud-native.json"
+    path.write_text(json.dumps(profile))
+    with pytest.raises(validator.ProfileError, match="authorities must exactly match"):
+        validator.validate_profile(path, environment)
+
+
+def test_vuoro_cloud_requires_enabled_production_target(tmp_path: Path) -> None:
+    environment = validator.validate_environment(ROOT / "environment-record/workstation-linux.vuoro-shared.json")
+    base = json.loads(_profile("workstation-vuoro-cloud.json").read_text())
+    for key, mutate in (
+        ("denied", lambda p: p.update(production_endpoint_denied=True)),
+        ("class", lambda p: p["target"].update(environment_class="development")),
+    ):
+        profile = json.loads(json.dumps(base))
+        mutate(profile)
+        path = tmp_path / f"cloud-{key}.json"
+        path.write_text(json.dumps(profile))
+        with pytest.raises(validator.ProfileError):
+            validator.validate_profile(path, environment)
+
+
 def test_vuoro_shared_profile_authorities_remain_unchanged() -> None:
     environment = validator.validate_environment(ROOT / "environment-record/workstation-linux.vuoro-shared.json")
     profile = validator.validate_profile(_profile("workstation-vuoro-shared.json"), environment)

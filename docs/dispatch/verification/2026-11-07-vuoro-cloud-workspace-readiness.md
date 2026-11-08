@@ -51,7 +51,7 @@ Source: admin plane through `vuoro-cli` (read-only), 2026-11-07 about 14:40Z.
   preconditions are met (Authorization fix vuoro 553d807; E2 agentops#2466
   done 2026-09-27). The third is not: `environment-record/profiles/` holds
   five profiles, all targeting `vuoro-shared`, all with
-  `production_endpoint_denied: false`; none targets vuoro.cloud. The
+  `production_endpoint_denied: false`; none targeted vuoro.cloud when observed (superseded by S3, §6). The
   workstation runs `SPRINTCTL_BACKEND=served` on `workstation-vuoro-shared`.
   The move has not started.
 - **[fact]** agentops#2536 (the cutover item) is `pending`, unchanged since

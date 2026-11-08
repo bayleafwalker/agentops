@@ -300,10 +300,8 @@ def validate_profile(path: Path, environment: dict[str, object]) -> dict[str, ob
         raise ProfileError(f"{path}: credential_ref must be a local file reference, never a token or URL")
     authorities = set(_strings(value["required_authorities"], "required_authorities", path, AUTHORITY))
     expected_authorities = (
-        {"work:read"}
-        if target["environment_id"] == "vuoro-cloud"
-        else WORKSTATION_OPERATOR_AUTHORITIES
-        if target["environment_id"] != "vuoro-cloud" and environment["id"] == "workstation"
+        WORKSTATION_OPERATOR_AUTHORITIES
+        if environment["id"] == "workstation"
         else WORK_AUTHORITIES
     )
     if value["id"] in NATIVE_EVIDENCE_PROFILES:
@@ -311,6 +309,9 @@ def validate_profile(path: Path, environment: dict[str, object]) -> dict[str, ob
         if environment["id"] != bound:
             raise ProfileError(f"{path}: native evidence profile is bound to {bound}")
         expected_authorities = NATIVE_EVIDENCE_AUTHORITIES
+    if target["environment_id"] == "vuoro-cloud":
+        # Applied last so no profile id can widen a vuoro-cloud target.
+        expected_authorities = {"work:read"}
     missing = expected_authorities - authorities
     extra = authorities - expected_authorities
     if missing or extra:
