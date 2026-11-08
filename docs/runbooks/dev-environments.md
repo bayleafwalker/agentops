@@ -53,6 +53,58 @@ and workspace templates to devbox; run it with `--dry-run` first and review the
 changes before `--apply`. It does not install or update the CLI. These are operator
 rollout commands; source changes do not run them.
 
+## Kajo conversational persona
+
+The canonical source is `templates/workspace/kajo.md`. It carries generic
+human-facing conversational guidance; private history and personal memories
+belong in their authorized stores. Task roles, permissions, verification,
+acceptance and required output formats remain unchanged.
+
+### Additive native loaders
+
+On each host, verify that its own checkout contains the source. Back up and
+inspect the existing user-level instructions, then add one reference only if
+absent. Preserve the rest of each file. Adjust the absolute source path when
+that host's checkout is elsewhere.
+
+| Native entry point | Additive instruction |
+|---|---|
+| Codex: `~/.codex/AGENTS.md` | Read `/projects/dev/agentops/templates/workspace/kajo.md` and apply its human-facing conversational guidance. |
+| Claude Code: `~/.claude/CLAUDE.md` | `@/projects/dev/agentops/templates/workspace/kajo.md` |
+| OpenCode: `~/.config/opencode/AGENTS.md` | Read `/projects/dev/agentops/templates/workspace/kajo.md` and apply its human-facing conversational guidance. |
+
+These follow the existing outcome-routing loader pattern. Keep the canonical
+body in one place rather than pasting it into each native file. They do not
+establish a change to Claude Desktop chat; report any app-level preference or
+style change separately.
+
+The workspace template also loads the source. Before updating
+`/projects/dev/AGENTS.md`, run
+`python3 scripts/render_workspace_agents.py --check` from this host's agentops
+checkout and inspect any drift. Preserve unrelated local guidance in its
+appropriate source before using `--apply`, then rerun `--check`.
+
+The existing workstation-to-devbox sync can transfer workspace guidance and
+templates through its documented dry-run/apply procedure. It does not install
+the user-level loaders above. Repository changes alone update no host or running
+session; install and verify each accessible host separately.
+
+### Activation and rollback
+
+Report the source revision, host loader and observed session separately:
+
+1. Verify the host's source file and the added loader by reading them back.
+2. In a new session, or a running session explicitly asked to reread guidance,
+   observe the source being loaded where native tooling exposes that evidence.
+   Keep automatic discovery and an explicit read distinct. If load evidence is
+   unavailable, report it as unverified.
+3. Check an ordinary reply and a task with a required output format. Treat this
+   as a bounded behaviour observation, not a guarantee of future adherence.
+
+For rollback, remove only the added native references. Revert the shared
+guidance change and regenerate the workspace file on each affected host after
+checking for drift. Preserve unrelated instructions and the pre-change backups.
+
 ## Session telemetry
 
 `agentops estate status --env infra --json` reads the infrastructure host's
