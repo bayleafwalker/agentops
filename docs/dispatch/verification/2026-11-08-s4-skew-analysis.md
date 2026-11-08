@@ -8,8 +8,11 @@ date: 2026-11-08
 
 Scope: offline source investigation and proposal only. No network request to
 vuoro.cloud, live workspace access, cluster change, deploy, or test-workspace
-operation was performed. The S3 read-route note was not present in this
-checkout's `origin/main`; the correlation path below is traced from source.
+operation was performed by the original worker. The correlation cause was later
+confirmed live (see "Why the request fails"). The version inventory below was
+read from local checkouts that lag origin/main (vuoro 17, vuoro-cloud 12,
+sprintctl 2 commits behind at review time); the **released-artifact check at
+2026-11-08 supersedes the 0.1.104/0.28.0 inventory**: see the target section.
 
 ## Version inventory
 
@@ -30,18 +33,27 @@ files describe candidates, not proof of what is currently running.
 
 ## Proposed target and reason
 
-Target the source-supported pair **vuoro-service 0.1.104 + Sprintctl 0.28.0**,
-with the served client dependency explicitly brought into alignment with the
-Vuoro client release selected for qualification. The cloud-side work-schema
-target is 31. This is the pair named by the readiness record and the
-schema-mapping source; it closes the gap between live 0.1.94 / 0.18.0 and the
-current source candidate. Do not treat the current Sprintctl 0.28.0 served
-extra's vuoro-client 0.1.1 pin as aligned: current Vuoro main is 0.1.7 and
-vuoro-cloud's lock is 0.1.5. Select and pin one released client version in
-the Sprintctl served extra, cloud composition manifest, and lock before
-qualifying. The exact immutable wheel URL and digest must come from the
-release metadata; this source-only investigation does not certify a release
-artifact.
+**Retargeted after review (2026-11-08).** The earlier proposal, vuoro-service
+0.1.104 + Sprintctl 0.28.0 at work schema 31, is superseded by published
+releases: `vuoro-service-v0.1.105` (2026-11-08) and Sprintctl `v0.28.1`
+(2026-11-07, Latest). Sprintctl 0.28.1 migrates work schema 29 through 34,
+declares schemas 32-34 compatible, and **rejects schema 31**
+(vuoro `origin/main` `packages/vuoro-service/README.md`, 0.1.105 section).
+Migrating the tenant to 31 with 0.28.0 would therefore strand it behind the
+next release. Target **vuoro-service 0.1.105 + Sprintctl 0.28.1, work schema
+34**. Sprintctl `v0.28.0` is the only artifact tied to schema 31; sprintctl
+`main` still reads `version = "0.28.0"` with a higher `remote-schema-version`,
+so cite released artifacts, not main source.
+
+The selected vuoro-client must contain the `X-Request-ID` fix (vuoro PR #317,
+proposed and open, vuoro-client 0.1.8 not yet released; latest released is
+0.1.7), or the gateway must be fixed instead. Without one of them a qualified
+pair still fails the live read route. Do not treat Sprintctl's served extra
+pin of vuoro-client 0.1.1 as aligned (vuoro-cloud's lock is 0.1.5). Select and
+pin one released client version in the Sprintctl served extra, cloud
+composition manifest, and lock before qualifying. The exact immutable wheel
+URL and digest come from release metadata; this note does not certify a
+release artifact.
 
 This is a proposal, not authorization to change pins, migrate a tenant, or
 deploy. The rollout must remain `release_ready: false` unless a separate
@@ -58,7 +70,7 @@ workspace PAT: `work.read.sprints` without the header returns 401
 `identity-required`; with `X-Request-ID` equal to the body `request_id` it
 returns 200 and `kotona` sprints. Full trace and citations:
 [`2026-11-08-s3-vuoro-cloud-read-route.md`](2026-11-08-s3-vuoro-cloud-read-route.md).
-Fix: vuoro PR #317 (client sends the header; vuoro-client 0.1.8). The
+Proposed fix: vuoro PR #317 (open; client sends the header; vuoro-client 0.1.8, unreleased) or a gateway-side change that signs the body `request_id`. The
 "operator must identify the deployed gateway image" limit below no longer
 blocks this item. Version skew remains a separate S4 question.
 
@@ -146,9 +158,9 @@ the proposed pair's current qualification status is **not established**.
 
 | Repo/action | Work | Operator authority required? |
 |---|---|---|
-| `vuoro` PR | Align Sprintctl's `served` extra to the selected, immutable Vuoro client release; refresh lock and served-client conformance tests. Keep service/client contract tests for request-ID rewriting. | No for authoring/reviewing a PR; normal repository maintainer authority to merge/release. |
+| `vuoro` PR | Client fix and release: send `X-Request-ID` equal to the invocation `request_id` (PR #317 -> vuoro-client 0.1.8), with contract tests; release-note the gateway correlation requirement. | No for authoring/reviewing; maintainer/release authority to merge and publish. |
 | `sprintctl` PR/release | Pin the same selected client version in the served extra and lock; publish an attested Sprintctl 0.28.x wheel after tests. | No for PR prep; maintainer/release-signing authority to merge and publish. |
-| `vuoro-cloud` PR | Update `compatibility.json`, runtime image pin, tenant work-schema bounds/preference, cloud client/Sprintctl dependencies and lock. If deployed-source comparison finds a missing request-ID rewrite, fix and test it here. Keep `release_ready: false`. | No for PR prep; maintainer authority to merge. |
+| `vuoro-cloud` PR | Update `compatibility.json`, runtime image pin, tenant work-schema bounds/preference, cloud client/Sprintctl dependencies and lock. Pin the client release that carries the `X-Request-ID` fix (or land the gateway-side alternative); target vuoro-service 0.1.105 / Sprintctl 0.28.1 / schema 34. Keep `release_ready: false`. | No for PR prep; maintainer authority to merge. |
 | Composition qualification | Run the command above on the exact candidate tree and retain its receipt; require every scenario pass or declared strict xfail. | No operator authority for the local run; access to Nix/PostgreSQL build environment is required. |
 | Test rehearsal | Provision a **new disposable test workspace** matching the held-test constraints; migrate and exercise documented rollback, then retire it through the supported lifecycle when allowed. | Yes: workspace provisioning, migration, backup/restore, and retirement require operator authority. |
 | Cloud promotion/deploy | Publish/promote the reviewed cloud release; verify image/source identity and runtime convergence; do not change release readiness. | Yes: signing/promotion and cluster deploy authority. |
