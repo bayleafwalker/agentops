@@ -827,5 +827,12 @@
     "successor": null,
     "last_verified": "2026-11-07",
     "justification": "decision record: operator decision 2026-07-24 demoting claims to advisory reservations; engineering source of truth is sprintctl docs/plans/v3-reservation-model-plan.md"
+  },
+  "docs/plans/2026-11-08-vuoro-cloud-record-family-cutover.md": {
+    "status": "proposed",
+    "owner": "agentops (default-assigned 2026-11-08)",
+    "work_ref": "agentops#2536",
+    "successor": null,
+    "last_verified": "2026-11-08"
   }
 }
