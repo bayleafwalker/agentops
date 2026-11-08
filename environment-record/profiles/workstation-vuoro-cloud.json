@@ -1,10 +1,10 @@
 {
   "schema_version": "vuoro-client-profile/v1",
   "id": "workstation-vuoro-cloud",
-  "revision": 1,
+  "revision": 2,
   "source_environment_id": "workstation",
   "target": {
-    "environment_id": "vuoro-cloud",
+    "environment_id": "vuoro-cloud-ws-01m3abjs1qw0",
     "environment_class": "production",
     "endpoint": "https://api.vuoro.cloud"
   },

@@ -44,23 +44,15 @@ name `agentops-operator`.
 
 ## Profile environment ID
 
-The existing per-workspace environment ID proposal remains open. `target.environment_id`
-must match the tenant runtime handshake name, `vuoro-cloud-ws-01m3abjs1qw0`,
-for Sprintctl's environment check to pass. The current profile uses generic
-`vuoro-cloud` (`environment-record/profiles/workstation-vuoro-cloud.json`),
-while Sprintctl compares the configured value with the handshake environment
+`target.environment_id` must match the tenant runtime handshake name,
+`vuoro-cloud-ws-01m3abjs1qw0`, for Sprintctl's environment check to pass. The
+workstation profile now uses this per-workspace ID. The validator and schema
+accept only the generic `vuoro-cloud` ID or the exact lowercase
+`vuoro-cloud-ws-<12 lowercase characters>` (the server derives it as `workspace_id.lower()[:12]`, vuoro-cloud `lifecycle.py:150`) form; both remain production targets with
+exactly `work:read` and `production_endpoint_denied: false`. Sprintctl compares
+the configured value with the handshake environment
 (`sprintctl/sprintctl/backend.py:232-238`,
-`vuoro/packages/vuoro-client/src/vuoro_client/client.py:124-131`). The
-successful direct API call does not establish that the workstation profile
-passes this check.
-
-Proposal (not implemented): allow the exact
-`vuoro-cloud-ws-<lowercase-ulid>` form in
-`scripts/validate_vuoro_profiles.py` and
-`environment-record/vuoro-client-profile.schema.json`, validate the lowercase
-ULID suffix, and keep authority exactly `work:read` for both forms. Consider a
-separate stable target-class field so tenant identity is not inferred from an
-unrestricted string.
+`vuoro/packages/vuoro-client/src/vuoro_client/client.py:124-131`).
 
 ## Local probe
 
