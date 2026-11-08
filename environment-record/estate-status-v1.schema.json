@@ -105,6 +105,32 @@
         "held": {"$ref": "#/$defs/facts"},
         "document": {"$ref": "#/$defs/facts"},
         "receipts": {"$ref": "#/$defs/facts"},
+        "operator_self_use": {
+          "type": "object",
+          "required": ["status", "not_release_ready", "scope", "label", "record_sha256"],
+          "properties": {
+            "status": {"enum": ["met", "not_met", "void"]},
+            "not_release_ready": {"const": true},
+            "scope": {
+              "type": "object",
+              "required": ["environment_id", "workspace_id", "workspaces", "operator_owned", "host_owner"],
+              "additionalProperties": false,
+              "properties": {
+                "environment_id": {"const": "vuoro-cloud"},
+                "workspace_id": {"const": "01M3ABJS1QW0Q6BNDCHP0DDTYF"},
+                "workspaces": {"const": ["kotona"]},
+                "operator_owned": {"const": true},
+                "host_owner": {"const": "operator"}
+              }
+            },
+            "expires_on": {"oneOf": [{"type": "string", "format": "date"}, {"type": "null"}]},
+            "label": {"type": "string", "minLength": 1},
+            "record_sha256": {"oneOf": [{"type": "string", "pattern": "^[0-9a-f]{64}$"}, {"type": "null"}]},
+            "first_failing_check": {"type": "string", "minLength": 1},
+            "void_reason": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": false
+        },
         "gate": {
           "type": "object",
           "required": ["next_blocking_gate", "recovery_class"],

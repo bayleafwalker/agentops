@@ -2,6 +2,10 @@
 
 Status: Proposed plan for agentops#2536; no actions authorized.
 
+<!-- operator-self-use-open-rows:v1
+["kctl estate and source scope","legacy knowledge row inventory","Workspace knowledge scope","TS-13 mapping decision","metanarrative authoritative stores","target ledger inventory interfaces","protected acceptance and receipt scope","local sprintctl SQLite inventory and count interface"]
+-->
+
 This plan documents readiness-stage S2. It authorizes no profile change, data
 read, migration, write, or cutover.
 
