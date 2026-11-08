@@ -21,9 +21,10 @@ def now() -> str:
 
 def safe_tail(text: str, limit: int = 4000) -> str:
     patterns = (
+        r"(?i)((?:authorization\s*:\s*)(?:basic|bearer)\s+)[A-Za-z0-9._~+/=-]+",
         r"(?i)(bearer\s+)[A-Za-z0-9._~+/=-]+",
-        r"(?i)((?:api[_-]?key|access[_-]?key|secret|password|token|authorization)\s*[:=]\s*)[\"']?[^\s,;\"']+",
-        r"(?i)([\"'](?:api[_-]?key|access[_-]?key|secret|password|token|authorization)[\"']\s*:\s*[\"'])[^\"']+",
+        r"(?i)((?:api[_-]?key|access[_-]?key|secret|password|token|authorization)\s*[:=]\s*)(?:\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'|[^\s,;]+)",
+        r"(?i)([\"'](?:api[_-]?key|access[_-]?key|secret|password|token|authorization)[\"']\s*:\s*[\"'])((?:\\.|[^\"\\])*)([\"'])",
         r"(?ims)-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?-----END [A-Z0-9 ]*PRIVATE KEY-----",
         r"\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|vuo_[A-Za-z0-9_-]{20,})\b",
         r"\bAKIA[0-9A-Z]{16}\b", r"\b(?:sk|sk-ant|sk-proj)-[A-Za-z0-9_-]{20,}\b",
@@ -88,17 +89,27 @@ def write_record(path: Path, record: dict) -> None:
 
 
 def opencode_final(stdout: str) -> str:
-    final = ""
+    parts = []
     for line in stdout.splitlines():
         try:
             event = json.loads(line)
         except (ValueError, TypeError):
             continue
-        if event.get("type") == "text":
+        if isinstance(event, dict) and event.get("type") == "text":
             part = event.get("part") or {}
             if isinstance(part, dict) and isinstance(part.get("text"), str):
-                final += part["text"]
-    return final
+                parts.append(part["text"])
+    # OpenCode's JSON text events do not identify assistant-message boundaries;
+    # treat their ordered text parts as one final response.
+    return "\n".join(parts)
+
+
+def escalation(final: str) -> tuple[bool, str | None]:
+    cleaned = [re.sub(r"[*`]|(?<!\w)_(?!\w)|(?<=\w)_(?!\w)", "", line).strip() for line in final.splitlines()]
+    marker = any(re.fullmatch(r"[-+> ]*DISPATCH_OUTCOME\s*:\s*ESCALATED[.,;:!? ]*", line, re.I) for line in cleaned)
+    reason = next((m.group(1).strip(" .,;:!?") for line in cleaned
+                   if (m := re.fullmatch(r"[-+> ]*ESCALATION_REASON\s*:\s*(.+?)\s*[.,;:!? ]*", line, re.I))), None)
+    return marker, reason
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -127,19 +138,39 @@ def main(argv: list[str] | None = None) -> int:
     temp_path = None
     proc = None
 
-    def finish(outcome: str, code: int, output: str = "", final: str = "", reason: str | None = None) -> None:
-        record.update(outcome=outcome, exit_code=code, final_message_tail=safe_tail(output),
+    finalized = False
+    def finish(outcome: str, code: int, final: str = "", reason: str | None = None) -> bool:
+        nonlocal finalized
+        if finalized:
+            return False
+        finalized = True
+        record.update(outcome=outcome, exit_code=code, final_message_tail=safe_tail(final),
                       escalation_reason=safe_tail(reason, 1000) if outcome == "escalated" and reason else None,
                       ended_at=now())
         write_record(status_path, record)
 
-    def on_term(signum, frame):
+    def kill_group() -> None:
         if proc and proc.poll() is None:
-            proc.kill()
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+
+    def bounded_drain() -> tuple[str, str]:
+        try:
+            return proc.communicate(timeout=0.25)
+        except subprocess.TimeoutExpired:
+            for pipe in (proc.stdout, proc.stderr):
+                if pipe:
+                    pipe.close()
+            return "", ""
+
+    def on_term(signum, frame):
+        kill_group()
         finish("failed", 128 + signum, "worker killed by signal")
         raise SystemExit(128 + signum)
 
-    previous_term = signal.signal(signal.SIGTERM, on_term)
+    previous_handlers = {sig: signal.signal(sig, on_term) for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)}
     try:
         if args.worker == "codex":
             fd, temp_path = tempfile.mkstemp(prefix="agentops-dispatch-final-")
@@ -147,13 +178,13 @@ def main(argv: list[str] | None = None) -> int:
             command += [args.model, "--output-last-message", temp_path, "--", args.prompt]
         else:
             command += [args.model, "--", args.prompt]
-        proc = subprocess.Popen(command, cwd=worktree, text=True, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        proc = subprocess.Popen(command, cwd=worktree, text=True, errors="replace", stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
         try:
             stdout, stderr = proc.communicate(timeout=args.timeout)
             code = proc.returncode
         except subprocess.TimeoutExpired:
-            proc.kill()
-            stdout, stderr = proc.communicate()
+            kill_group()
+            stdout, stderr = bounded_drain()
             code = 124
             stdout += "\nDISPATCH_TIMEOUT: worker exceeded --timeout\n"
         transcript = (stdout or "") + ("\n" + stderr if stderr else "")
@@ -165,25 +196,31 @@ def main(argv: list[str] | None = None) -> int:
             final = opencode_final(stdout or "")
         else:
             final = ""
-        marker = re.search(r"(?im)^\s*[-*+`*_>\s]*DISPATCH_OUTCOME\s*:\s*ESCALATED\s*[*_`.,;:!?]*\s*$", final)
-        reason_match = re.search(r"(?im)^\s*[-*+`*_>\s]*ESCALATION_REASON\s*:\s*(.+?)\s*[*_`.,;:!?]*\s*$", final)
+        marker, reason = escalation(final)
         if marker:
-            finish("escalated", code, transcript, final, reason_match.group(1).strip(" *_`.,;:!?") if reason_match else None)
+            finish("escalated", code, final, reason)
             result_code = 0
         elif code == 0:
-            finish("done", code, transcript)
+            finish("done", code, final)
             result_code = 0
         else:
-            finish("failed", code, transcript)
+            finish("failed", code, final)
             result_code = code
         print(safe_tail(transcript), end="\n" if transcript else "")
         print(f"agentops dispatch run: {record['outcome']}; status: {status_path}", file=sys.stderr)
         return result_code or (1 if record["outcome"] == "failed" else 0)
     except OSError as exc:
-        finish("failed", 127, str(exc))
+        finish("failed", 127, f"{type(exc).__name__}: {exc}")
         return 127
+    except Exception as exc:
+        kill_group()
+        bounded_drain()
+        finish("failed", 1, f"{type(exc).__name__}: {exc}")
+        print(f"agentops dispatch run: unexpected error: {type(exc).__name__}", file=sys.stderr)
+        return 1
     finally:
-        signal.signal(signal.SIGTERM, previous_term)
+        for sig, handler in previous_handlers.items():
+            signal.signal(sig, handler)
         if temp_path and os.path.exists(temp_path):
             os.unlink(temp_path)
 

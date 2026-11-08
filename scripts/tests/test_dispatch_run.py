@@ -1,8 +1,11 @@
 import json
 import os
+import signal
 from pathlib import Path
 import subprocess
 import sys
+import time
+import textwrap
 
 SCRIPT = Path(__file__).parents[1] / "dispatch_run.py"
 
@@ -85,10 +88,19 @@ def test_record_redacts_common_secret_forms(tmp_path):
 def test_record_redacts_json_quoted_keys_and_pem_before_truncating(tmp_path):
     tree, fakebin = setup(tmp_path)
     output = '{"token": "quoted-secret", "other": "ok"}\n-----BEGIN RSA PRIVATE KEY-----\nprivate-material\n-----END RSA PRIVATE KEY-----'
-    _, record = invoke(tmp_path, tree, fakebin, output=output)
+    _, record = invoke(tmp_path, tree, fakebin, output=output, final=output)
     serialized = json.dumps(record)
     assert "quoted-secret" not in serialized
     assert "private-material" not in serialized
+
+
+def test_record_redacts_authorization_and_quoted_values(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    output = 'Authorization: Basic basic-secret\nAuthorization: Bearer bearer-secret\ntoken="several secret words"\n{"token":"escaped \\\"secret\\\" value"}'
+    _, record = invoke(tmp_path, tree, fakebin, output=output, final=output)
+    serialized = json.dumps(record)
+    for secret in ("basic-secret", "bearer-secret", "several secret words", "escaped", "secret\\\" value"):
+        assert secret not in serialized
 
 
 def test_bad_cli_flags_fail_before_worker_run(tmp_path):
@@ -128,6 +140,14 @@ def test_markdown_marker_and_reason_only_when_escalated(tmp_path):
     assert record["escalation_reason"] == "need owner"
     _, record = invoke(tmp_path, tree, fakebin, final="ESCALATION_REASON: irrelevant")
     assert record["escalation_reason"] is None
+
+
+def test_all_markdown_marker_forms(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    for final in ("**DISPATCH_OUTCOME:** ESCALATED", "**DISPATCH_OUTCOME**: ESCALATED",
+                  "- DISPATCH_OUTCOME: **ESCALATED**"):
+        _, record = invoke(tmp_path, tree, fakebin, final=final)
+        assert record["outcome"] == "escalated", final
 
 
 def test_echoed_prompt_and_stderr_marker_do_not_escalate(tmp_path):
@@ -181,26 +201,98 @@ def test_timeout_kills_worker_and_records_marker(tmp_path):
     assert result.returncode == 124
     assert record["outcome"] == "failed"
     assert record["exit_code"] == 124
-    assert "DISPATCH_TIMEOUT" in record["final_message_tail"]
+    assert record["final_message_tail"] == ""
 
 
-def test_sigterm_finalizes_running_record_as_failed(tmp_path):
+def test_timeout_kills_process_group_with_grandchild(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    worker = fakebin / "codex"
+    worker.write_text(worker.read_text().replace('if [ -n "${FAKE_SLEEP:-}" ]; then sleep "$FAKE_SLEEP"; fi',
+                                                 'if [ -n "${FAKE_SLEEP:-}" ]; then sleep 30 & sleep 30; fi'))
+    worker.chmod(0o755)
+    start = time.monotonic()
+    result, record = invoke(tmp_path, tree, fakebin, extra=("--timeout", "1"), sleep="yes")
+    assert time.monotonic() - start < 4
+    assert result.returncode == 124
+    assert record["outcome"] == "failed" and record["exit_code"] == 124
+
+
+def test_final_message_excludes_prompt_and_transcript(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    _, record = invoke(tmp_path, tree, fakebin, prompt="sensitive echoed prompt", output="sensitive echoed prompt", final="answer")
+    assert record["final_message_tail"] == "answer"
+    assert "sensitive echoed prompt" not in json.dumps(record)
+
+
+def test_non_utf8_worker_output_is_replaced(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    worker = fakebin / "codex"
+    worker.write_text(worker.read_text().replace("printf '%s\\n' \"$FAKE_OUTPUT\"", "printf '\\377\\n'"))
+    worker.chmod(0o755)
+    result, record = invoke(tmp_path, tree, fakebin)
+    assert result.returncode == 0
+    assert record["outcome"] == "done"
+
+
+def test_opencode_ignores_non_dict_json_lines(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    opencode = fakebin / "opencode"
+    opencode.write_text("#!/bin/sh\nif [ \"$1\" = run ] && [ \"$2\" = --help ]; then printf '%s\\n' 'opencode run --model --format'; exit 0; fi\nprintf '%s\\n' '[]' '{\"type\":\"text\",\"part\":{\"text\":\"reply\"}}'\n")
+    opencode.chmod(0o755)
+    status = tmp_path / "opencode.json"
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}")
+    result = subprocess.run([sys.executable, str(SCRIPT), "--worker", "opencode", "--model", "provider/model",
+                             "--data-boundary-attested", "--worktree", str(tree), "--status-file", str(status), "prompt"],
+                            text=True, capture_output=True, env=env)
+    assert result.returncode == 0
+    assert json.loads(status.read_text())["final_message_tail"] == "reply"
+
+
+def test_late_signal_does_not_overwrite_finalized_record(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    status = tmp_path / "late.json"
+    code = textwrap.dedent(f"""
+        import importlib.util, os, signal
+        spec = importlib.util.spec_from_file_location('dispatch_run', {str(SCRIPT)!r})
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        original = m.write_record
+        count = [0]
+        def write(path, record):
+            count[0] += 1
+            original(path, record)
+            if count[0] == 2:
+                os.kill(os.getpid(), signal.SIGTERM)
+        m.write_record = write
+        m.main(['--worker', 'codex', '--model', 'm', '--worktree', {str(tree)!r},
+                '--status-file', {str(status)!r}, 'prompt'])
+    """)
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", FAKE_FINAL="answer", FAKE_OUTPUT="", FAKE_ERR="", FAKE_EXIT="0", ARGV_FILE=str(tmp_path / "argv"))
+    result = subprocess.run([sys.executable, "-c", code], env=env, text=True, capture_output=True)
+    assert result.returncode == 143
+    record = json.loads(status.read_text())
+    assert record["outcome"] == "done"
+    assert record["final_message_tail"] == "answer"
+
+
+def test_signals_finalize_running_record_as_failed(tmp_path):
     tree, fakebin = setup(tmp_path)
     status = tmp_path / "term.json"
     env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", TMPDIR=str(tmp_path), FAKE_SLEEP="10",
                FAKE_OUTPUT="", FAKE_FINAL="", FAKE_ERR="", FAKE_EXIT="0", ARGV_FILE=str(tmp_path / "argv"))
-    proc = subprocess.Popen([sys.executable, str(SCRIPT), "--worker", "codex", "--model", "gpt-6-luna",
-                             "--worktree", str(tree), "--status-file", str(status), "prompt"],
-                            env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    import time
-    deadline = time.monotonic() + 5
-    while time.monotonic() < deadline:
-        if status.exists() and json.loads(status.read_text())["outcome"] == "running":
-            break
-        time.sleep(0.01)
-    proc.terminate()
-    assert proc.wait(timeout=5) == 143
-    record = json.loads(status.read_text())
-    assert record["outcome"] == "failed"
-    assert record["exit_code"] == 143
-    assert "killed" in record["final_message_tail"]
+    for sig, expected in ((signal.SIGINT, 130), (signal.SIGHUP, 129), (signal.SIGTERM, 143)):
+        status.unlink(missing_ok=True)
+        proc = subprocess.Popen([sys.executable, str(SCRIPT), "--worker", "codex", "--model", "gpt-6-luna",
+                                 "--worktree", str(tree), "--status-file", str(status), "prompt"],
+                                env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            if status.exists() and json.loads(status.read_text())["outcome"] == "running":
+                break
+            time.sleep(0.01)
+        os.kill(proc.pid, sig)
+        assert proc.wait(timeout=5) == expected
+        record = json.loads(status.read_text())
+        assert record["outcome"] == "failed"
+        assert record["exit_code"] == expected
+        assert "killed" in record["final_message_tail"]
