@@ -42,8 +42,8 @@ declares schemas 32-34 compatible, and **rejects schema 31**
 Migrating the tenant to 31 with 0.28.0 would therefore strand it behind the
 next release. Target **vuoro-service 0.1.105 + Sprintctl 0.28.1, work schema
 34**. Sprintctl `v0.28.0` is the only artifact tied to schema 31; sprintctl
-`main` still reads `version = "0.28.0"` with a higher `remote-schema-version`,
-so cite released artifacts, not main source.
+`origin/main` and `v0.28.1` read `0.28.1` / `remote-schema-version = 34` (a
+lagging local checkout reads 0.28.0 / 33). Cite released artifacts.
 
 The selected vuoro-client must contain the `X-Request-ID` fix (vuoro PR #317,
 proposed and open, vuoro-client 0.1.8 not yet released; latest released is
@@ -98,11 +98,10 @@ that the deployed gateway forwards a client-generated body `request_id` while
 signing/forwarding its own transport request ID, or that the gateway and
 runtime versions implement different correlation contracts. Current cloud
 source contains the needed rewrite, but this does not prove that the deployed
-gateway image contains that source. **Offline root-cause limit:** the deployed
-gateway image corresponding to the failing route was not inspected, and the
-S3 route report is absent. An operator must identify the failing route and
-deployed gateway image/source revision before attributing this to a specific
-deployed binary. Do not deploy based on the source inference alone.
+gateway image contains that source. *(Superseded: the offline root-cause limit
+that stood here, no inspection of the deployed gateway image and no S3 route
+report, no longer applies. The cause was confirmed live; see the top of this
+section.)*
 
 ## Local fake reproduction
 
@@ -159,7 +158,7 @@ the proposed pair's current qualification status is **not established**.
 | Repo/action | Work | Operator authority required? |
 |---|---|---|
 | `vuoro` PR | Client fix and release: send `X-Request-ID` equal to the invocation `request_id` (PR #317 -> vuoro-client 0.1.8), with contract tests; release-note the gateway correlation requirement. | No for authoring/reviewing; maintainer/release authority to merge and publish. |
-| `sprintctl` PR/release | Pin the same selected client version in the served extra and lock; publish an attested Sprintctl 0.28.x wheel after tests. | No for PR prep; maintainer/release-signing authority to merge and publish. |
+| `sprintctl` PR/release | Pin the same selected client version in the served extra and lock; Sprintctl 0.28.1 is already released and still pins vuoro-client 0.1.1 in its served extra: either accept that misalignment for qualification (state it in the receipt) or publish an attested 0.28.2 with the selected client pin. | No for PR prep; maintainer/release-signing authority to merge and publish. |
 | `vuoro-cloud` PR | Update `compatibility.json`, runtime image pin, tenant work-schema bounds/preference, cloud client/Sprintctl dependencies and lock. Pin the client release that carries the `X-Request-ID` fix (or land the gateway-side alternative); target vuoro-service 0.1.105 / Sprintctl 0.28.1 / schema 34. Keep `release_ready: false`. | No for PR prep; maintainer authority to merge. |
 | Composition qualification | Run the command above on the exact candidate tree and retain its receipt; require every scenario pass or declared strict xfail. | No operator authority for the local run; access to Nix/PostgreSQL build environment is required. |
 | Test rehearsal | Provision a **new disposable test workspace** matching the held-test constraints; migrate and exercise documented rollback, then retire it through the supported lifecycle when allowed. | Yes: workspace provisioning, migration, backup/restore, and retirement require operator authority. |
@@ -180,7 +179,8 @@ for a fresh disposable fixture, not as a target.
    schema/image, backup checkpoint, and empty/known record counts before any
    migration. Keep all four held workspace IDs out of the command inputs.
 2. Establish a verified checkpoint before migration. Run the normal tenant
-   migration through the supported lifecycle to schema 31 using the candidate
+   migration through the supported lifecycle from the current schema to schema 34 (the explicit 31->34 path
+   applies if the tenant is on a schema-31 owner) using the candidate
    runtime. Verify migration state, tenant catalog and per-domain ledger
    versions, client handshake/invocation, and before/after counts. Keep the
    workspace fenced from normal user traffic during the rehearsal.
