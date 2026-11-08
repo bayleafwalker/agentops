@@ -188,6 +188,16 @@ restricted material into an external prompt. This is why the automatic approval
 review rejected sending a detailed queue contract to OpenCode Go on 2026-11-06:
 the boundary held, and that request is not to be rerouted.
 
+**Operator amendment (2026-11-08): public lane designs are cleared.** Work-queue,
+contract, gate, admission and authority/effect *designs and code that live in
+public repositories* (lanectl, agentops, vuoro, sprintctl) are cleared for
+OpenCode Go, so DeepSeek lanes can build the lane system itself; keeping them
+first-party only pushed that work onto Opus quota. Still excluded: credentials
+and secret values, private repositories (appservice, cred-broker, vuoro-cloud
+operations), private sprintctl state, served tracker records, handoffs,
+telemetry, and customer or tenant data. This supersedes the 2026-11-06 rejection
+for public-repository designs only.
+
 Autonomous implementation lanes (2026-11-08): `lanectl` (`/projects/dev/lanectl`,
 ADR 0001) runs planner-written WorkReleases through `agentops dispatch run` with
 OpenCode Go `deepseek-v4.1-flash` (alias `fast-build`, provider `opencode-go`) in
