@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -51,7 +52,7 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--status-file", required=True, type=Path)
     p.add_argument("--worker", required=True, choices=("codex", "opencode"))
     p.add_argument("--timeout", type=float, default=3600, help="worker timeout in seconds (default: 3600)")
-    p.add_argument("--kill-grace", type=float, default=5, help="seconds to wait after SIGTERM before SIGKILL (default: 5; 0 disables grace)")
+    p.add_argument("--kill-grace", type=float, default=5, help="seconds to wait after SIGTERM before SIGKILL (default: 5; 0 disables grace; maximum: 300)")
     p.add_argument("--data-boundary-attested", action="store_true", help="attest OpenCode input meets external-provider boundary")
     p.add_argument("prompt", help="bounded worker outcome and acceptance criteria")
     return p
@@ -135,14 +136,15 @@ def escalation(final: str) -> tuple[bool, str | None]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    script_mode = argv is None
     argv = sys.argv[1:] if argv is None else argv
     if argv[:1] == ["run"]:
         argv = argv[1:]
     args = parser().parse_args(argv)
-    if args.timeout <= 0:
-        parser().error("--timeout must be positive")
-    if args.kill_grace < 0:
-        parser().error("--kill-grace must be non-negative")
+    if not math.isfinite(args.timeout) or args.timeout <= 0:
+        parser().error("--timeout must be finite and positive")
+    if not math.isfinite(args.kill_grace) or not 0 <= args.kill_grace <= 300:
+        parser().error("--kill-grace must be finite and between 0 and 300 seconds")
     worktree, status_path = args.worktree.resolve(), args.status_file.resolve()
     if args.worker == "opencode" and not args.data_boundary_attested:
         parser().error("OpenCode requires --data-boundary-attested after checking the external-provider data boundary")
@@ -165,6 +167,7 @@ def main(argv: list[str] | None = None) -> int:
     pending_signal = None
     signal_count = 0
     finalized = False
+    terminal_write_failed = False
     def on_term(signum, frame):
         nonlocal pending_signal, signal_count
         signal_count += 1
@@ -194,7 +197,7 @@ def main(argv: list[str] | None = None) -> int:
         pass
 
     def finish(outcome: str, code: int, final: str = "", reason: str | None = None) -> bool:
-        nonlocal finalized
+        nonlocal finalized, terminal_write_failed
         if finalized:
             return False
         record.update(outcome=outcome, exit_code=code, final_message_tail=safe_tail(final),
@@ -207,20 +210,17 @@ def main(argv: list[str] | None = None) -> int:
                 finalized = True
             except Exception as exc:
                 finalized = True
-                record.update(outcome="failed", exit_code=1,
+                terminal_write_failed = True
+                record.update(outcome="failed" if code == 0 else outcome,
+                              exit_code=code or 1,
                               final_message_tail=safe_tail(f"terminal status write failed: {type(exc).__name__}: {exc}"),
                               escalation_reason=None, ended_at=now())
                 try:
-                    write_record(status_path, record)
-                except Exception:
-                    pass
-                try:
                     fallback = status_path.with_name(status_path.name + ".fallback.json")
                     write_record(fallback, record)
-                    print(f"agentops dispatch run: terminal record write failed; fallback: {fallback}", file=sys.stderr)
+                    print(f"agentops dispatch run: terminal record write failed; fallback written to {fallback}", file=sys.stderr)
                 except Exception:
-                    print(json.dumps(record, ensure_ascii=False), file=sys.stderr)
-                raise _TerminalRecordFailure from exc
+                    print(f"agentops dispatch run: terminal record write failed ({type(exc).__name__}: {exc}); fallback write failed", file=sys.stderr)
         finally:
             # Discard signals queued during the atomic terminal commit. Its
             # outcome is already authoritative and must agree with our exit.
@@ -252,6 +252,8 @@ def main(argv: list[str] | None = None) -> int:
         kill_group(signal.SIGTERM)
         deadline = time.monotonic() + args.kill_grace
         while proc and signal_count < 2 and time.monotonic() < deadline:
+            # Reap the session leader; otherwise its zombie keeps killpg(pgid, 0) succeeding.
+            proc.poll()
             try:
                 os.killpg(proc.pid, 0)
             except ProcessLookupError:
@@ -260,8 +262,6 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             except PermissionError:
                 pass
-            if proc.poll() is not None and signal_count >= 2:
-                break
             time.sleep(min(0.02, max(0, deadline - time.monotonic())))
         kill_group(signal.SIGKILL)
         if proc:
@@ -312,8 +312,8 @@ def main(argv: list[str] | None = None) -> int:
             stdout, stderr = bounded_drain()
             kill_group()
         except subprocess.TimeoutExpired:
-            stdout, stderr = bounded_drain()
             terminate_group()
+            stdout, stderr = bounded_drain()
             code = 124
             stdout += "\nDISPATCH_TIMEOUT: worker exceeded --timeout\n"
         transcript = (stdout or "") + ("\n" + stderr if stderr else "")
@@ -338,7 +338,10 @@ def main(argv: list[str] | None = None) -> int:
             finish("failed", code, final)
             result_code = code
         print(safe_tail(transcript), end="\n" if transcript else "")
-        print(f"agentops dispatch run: {record['outcome']}; status: {status_path}", file=sys.stderr)
+        if not terminal_write_failed:
+            print(f"agentops dispatch run: {record['outcome']}; status: {status_path}", file=sys.stderr)
+        if terminal_write_failed and result_code == 0:
+            return 1
         return result_code or (1 if record["outcome"] == "failed" else 0)
     except _DispatchInterrupted:
         sig = pending_signal or signal.SIGTERM
@@ -348,24 +351,32 @@ def main(argv: list[str] | None = None) -> int:
         finish("failed", 128 + sig, "worker killed by signal" + ("\n" + partial if partial else ""))
         return 128 + sig
     except _TerminalRecordFailure:
-        print("agentops dispatch run: could not persist terminal status; exiting with code 1", file=sys.stderr)
-        return 1
+        return 128 + (pending_signal or signal.SIGTERM) if pending_signal is not None else 1
     except OSError as exc:
         terminate_group()
         partial_out, partial_err = bounded_drain()
         partial = "\n".join(part for part in (partial_out, partial_err) if part)
-        finish("failed", 127, f"{type(exc).__name__}: {exc}" + ("\n" + partial if partial else ""))
-        return 127
+        code = 128 + pending_signal if pending_signal is not None else 127
+        finish("failed", code, f"{type(exc).__name__}: {exc}" + ("\n" + partial if partial else ""))
+        return code
     except Exception as exc:
         terminate_group()
         partial_out, partial_err = bounded_drain()
         partial = "\n".join(part for part in (partial_out, partial_err) if part)
-        finish("failed", 1, f"{type(exc).__name__}: {exc}" + ("\n" + partial if partial else ""))
-        print(f"agentops dispatch run: unexpected error: {type(exc).__name__}", file=sys.stderr)
-        return 1
+        code = 128 + pending_signal if pending_signal is not None else 1
+        finish("failed", code, f"{type(exc).__name__}: {exc}" + ("\n" + partial if partial else ""))
+        if not terminal_write_failed:
+            print(f"agentops dispatch run: unexpected error: {type(exc).__name__}", file=sys.stderr)
+        return code
     finally:
-        for sig, handler in previous_handlers.items():
-            signal.signal(sig, handler)
+        if script_mode and finalized:
+            # Keep the committed exit code authoritative until the process exits.
+            for sig in blocked:
+                signal.signal(sig, signal.SIG_IGN)
+            signal.pthread_sigmask(signal.SIG_BLOCK, blocked)
+        else:
+            for sig, handler in previous_handlers.items():
+                signal.signal(sig, handler)
         if temp_dir:
             temp_dir.cleanup()
 

@@ -247,6 +247,35 @@ def test_timeout_kills_worker_and_records_marker(tmp_path):
     assert record["final_message_tail"] == ""
 
 
+def test_timeout_drains_output_after_term_grace(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    worker = fakebin / "codex"
+    worker.write_text("#!/usr/bin/env python3\nimport os,signal,sys,time\n"
+                      "if sys.argv[1:] == ['exec','--help']:\n print('exec --model -s --output-last-message'); raise SystemExit(0)\n"
+                      "path=sys.argv[sys.argv.index('--output-last-message')+1]\n"
+                      "def term(*_):\n print('printed during grace',flush=True); open(path,'w').write('final during grace'); raise SystemExit(0)\n"
+                      "signal.signal(signal.SIGTERM,term)\ntime.sleep(20)\n")
+    worker.chmod(0o755)
+    result, record = invoke(tmp_path, tree, fakebin, extra=("--timeout", "0.1", "--kill-grace", "0.5"))
+    assert result.returncode == 124
+    assert "printed during grace" in result.stdout
+    assert record["exit_code"] == 124
+    assert record["final_message_tail"] == "final during grace"
+
+
+@pytest.mark.parametrize(("option", "value"), [
+    ("--timeout", "nan"), ("--timeout", "inf"), ("--timeout", "-1"),
+    ("--kill-grace", "nan"), ("--kill-grace", "inf"), ("--kill-grace", "-1"),
+    ("--kill-grace", "301"),
+])
+def test_rejects_invalid_time_values(tmp_path, option, value):
+    tree, fakebin = setup(tmp_path)
+    result, record = invoke(tmp_path, tree, fakebin, extra=(option, value))
+    assert result.returncode == 2
+    assert f"{option} must be" in result.stderr
+    assert record is None
+
+
 def test_timeout_kills_process_group_with_grandchild(tmp_path):
     tree, fakebin = setup(tmp_path)
     pidfile = tmp_path / "timed-out-worker.pid"
@@ -427,6 +456,34 @@ def test_terminal_record_is_single_atomic_replace_and_process_exit_matches(tmp_p
     assert record["outcome"] == "done" and record["exit_code"] == result.returncode
 
 
+def test_script_mode_ignores_signal_after_terminal_commit_until_exit(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    status = tmp_path / "post-commit.json"
+    code = textwrap.dedent(f"""
+        import importlib.util, os, signal, sys, tempfile
+        spec = importlib.util.spec_from_file_location('dispatch_run', {str(SCRIPT)!r})
+        m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+        real = tempfile.TemporaryDirectory
+        class CleanupSignal:
+            def __init__(self, *args, **kwargs): self.inner = real(*args, **kwargs)
+            @property
+            def name(self): return self.inner.name
+            def cleanup(self):
+                os.kill(os.getpid(), signal.SIGINT)
+                self.inner.cleanup()
+        m.tempfile.TemporaryDirectory = CleanupSignal
+        sys.argv = [{str(SCRIPT)!r}, '--worker', 'codex', '--model', 'm', '--worktree', {str(tree)!r},
+                    '--status-file', {str(status)!r}, 'prompt']
+        raise SystemExit(m.main())
+    """)
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", FAKE_FINAL="answer", FAKE_OUTPUT="", FAKE_ERR="",
+               FAKE_EXIT="0", ARGV_FILE=str(tmp_path / "argv"))
+    result = subprocess.run([sys.executable, "-c", code], env=env, text=True, capture_output=True)
+    record = json.loads(status.read_text())
+    assert result.returncode == 0, result.stderr
+    assert record["outcome"] == "done" and record["exit_code"] == 0
+
+
 @pytest.mark.parametrize("when", ["before_spawn", "after_spawn"])
 def test_signal_at_popen_boundary_terminates_worker_and_matches_record(tmp_path, when):
     tree, fakebin = setup(tmp_path)
@@ -583,8 +640,69 @@ def test_terminal_record_failure_uses_fallback_and_exits_nonzero(tmp_path):
     assert fallback["outcome"] == "failed" and fallback["exit_code"] == 1
 
 
+def test_terminal_write_failure_during_signal_keeps_signal_code_and_fallback(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    status = tmp_path / "signal-write-failure.json"
+    code = textwrap.dedent(f"""
+        import importlib.util, os, signal, threading
+        spec = importlib.util.spec_from_file_location('dispatch_run', {str(SCRIPT)!r})
+        m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+        real = m.write_record
+        def failing(path, record):
+            if str(path) == {str(status)!r} and record['outcome'] != 'running': raise OSError('disk full')
+            return real(path, record)
+        m.write_record = failing
+        threading.Timer(.2, lambda: os.kill(os.getpid(), signal.SIGTERM)).start()
+        raise SystemExit(m.main(['--worker', 'codex', '--model', 'm', '--worktree', {str(tree)!r},
+                                '--status-file', {str(status)!r}, 'prompt']))
+    """)
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", FAKE_SLEEP="20", FAKE_FINAL="", FAKE_OUTPUT="",
+               FAKE_ERR="", ARGV_FILE=str(tmp_path / "argv"))
+    result = subprocess.run([sys.executable, "-c", code], env=env, text=True, capture_output=True, timeout=4)
+    assert result.returncode == 143
+    assert result.stderr.count("terminal record write failed") == 1
+    assert "Traceback" not in result.stderr
+    fallback = json.loads(Path(str(status) + ".fallback.json").read_text())
+    assert fallback["outcome"] == "failed" and fallback["exit_code"] == 143
+
+
+@pytest.mark.parametrize(("error", "expected"), [("OSError", 127), ("RuntimeError", 1)])
+def test_terminal_write_failure_in_error_handler_is_reported_once(tmp_path, error, expected):
+    tree, fakebin = setup(tmp_path)
+    status = tmp_path / f"{error}.json"
+    code = textwrap.dedent(f"""
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('dispatch_run', {str(SCRIPT)!r})
+        m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+        real_write = m.write_record
+        def failing_write(path, record):
+            if str(path) == {str(status)!r} and record['outcome'] != 'running': raise OSError('disk full')
+            return real_write(path, record)
+        real_popen = m.subprocess.Popen
+        def fail_worker(command, *args, **kwargs):
+            if command and '--output-last-message' in command: raise {error}('worker launch failed')
+            return real_popen(command, *args, **kwargs)
+        m.write_record = failing_write
+        m.subprocess.Popen = fail_worker
+        raise SystemExit(m.main(['--worker', 'codex', '--model', 'm', '--worktree', {str(tree)!r},
+                                '--status-file', {str(status)!r}, 'prompt']))
+    """)
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}")
+    result = subprocess.run([sys.executable, "-c", code], env=env, text=True, capture_output=True)
+    assert result.returncode == expected
+    assert result.stderr.count("terminal record write failed") == 1
+    assert "Traceback" not in result.stderr and "unexpected error" not in result.stderr
+    fallback = json.loads(Path(str(status) + ".fallback.json").read_text())
+    assert fallback["outcome"] == "failed" and fallback["exit_code"] == expected
+
+
 def test_second_signal_skips_kill_grace(tmp_path):
     tree, fakebin = setup(tmp_path)
+    worker = fakebin / "codex"
+    ready = tmp_path / "ignoring-term-ready"
+    worker.write_text(worker.read_text().replace('if [ -n "${FAKE_SLEEP:-}" ]; then sleep "$FAKE_SLEEP"; fi',
+                                                 f'trap \'\' TERM\ntouch "{ready}"\nsleep 20'))
+    worker.chmod(0o755)
     status = tmp_path / "twice.json"
     env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", FAKE_SLEEP="20", FAKE_FINAL="", FAKE_OUTPUT="",
                FAKE_ERR="", FAKE_EXIT="0", ARGV_FILE=str(tmp_path / "argv"))
@@ -592,10 +710,11 @@ def test_second_signal_skips_kill_grace(tmp_path):
                              "--kill-grace", "2", "--worktree", str(tree), "--status-file", str(status), "prompt"],
                            env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
     deadline = time.monotonic() + 3
-    while time.monotonic() < deadline and not status.exists():
+    while time.monotonic() < deadline and not ready.exists():
         time.sleep(.01)
+    assert ready.exists(), "worker did not install its TERM ignore trap"
     os.kill(proc.pid, signal.SIGTERM)
-    time.sleep(.05)
+    time.sleep(.1)
     os.kill(proc.pid, signal.SIGINT)
     assert proc.wait(timeout=1) == 143
     record = json.loads(status.read_text())
