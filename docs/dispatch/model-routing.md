@@ -12,6 +12,7 @@ Example (Codex):
 
 ```sh
 agentops dispatch run --worker codex --model gpt-6-luna \
+  --timeout 1800 \
   --worktree /path/to/worktree --status-file /path/to/run-status.json \
   'Implement the bounded outcome; run the named checks. If blocked by an escalation condition, stop and print DISPATCH_OUTCOME: ESCALATED and ESCALATION_REASON: <reason>.'
 ```
@@ -34,9 +35,18 @@ The wrapper validates the selected CLI's help output before starting work.
 Codex is invoked with `codex exec -s workspace-write --model MODEL`; it does not
 use the rejected `--full-auto` flag. OpenCode uses `opencode run --model MODEL`.
 Missing CLIs or unsupported required flags fail before the worker starts, with
-a diagnostic. Worker exit zero writes `done`, nonzero writes `failed`, and the
-explicit `DISPATCH_OUTCOME: ESCALATED` marker always writes `escalated` even if
-the process exits zero. Include `ESCALATION_REASON: …` for a concise reason.
+a diagnostic. `--timeout` defaults to 3600 seconds; expiration kills the worker
+and records `failed` with exit code 124 and a timeout marker. A `running` record
+is written before launch and replaced with a terminal record on completion or
+SIGTERM (failed, exit code 143). Worker exit zero writes `done`, nonzero writes
+`failed`, and the explicit `DISPATCH_OUTCOME: ESCALATED` marker in the worker's
+final message writes `escalated` even if the process exits nonzero. Include
+`ESCALATION_REASON: …` for a concise reason.
+
+The wrapper exits 0 for `done` or `escalated`, preserves a failed worker's exit
+code (signal exits map to 128 plus the signal number), and exits 2 for launch
+validation errors. `--model` is passed through as supplied; the caller is
+responsible for resolving it against aliases in `model-routing.json`.
 
 The atomic JSON status record (`agentops-dispatch-run/v1`) contains outcome,
 exit code, branch, head SHA, dirty flag, a bounded/redacted final output tail,

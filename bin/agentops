@@ -30,10 +30,14 @@ fi
 
 topic="$1"; shift
 script=""
-two_word_topics="estate dispatch"  # topics whose second word selects scripts/<topic>_<word>.py
+two_word_topics="estate"  # topics whose second word selects scripts/<topic>_<word>.py
 dir="$root/scripts"
 if [[ -r "$dir/${topic//-/_}.py" ]]; then
   script="$dir/${topic//-/_}.py"
+elif [[ "$topic" == dispatch && "${1:-}" == run && -r "$dir/dispatch_run.py" ]]; then
+  # Explicit transport spelling; keep other `dispatch <word>` inputs unrouted.
+  script="$dir/dispatch_run.py"
+  shift
 elif [[ $# -ge 1 && " $two_word_topics " == *" $topic "* && "$1" =~ ^[a-z]+$ \
         && -r "$dir/${topic}_${1}.py" ]]; then
   # Two-word topics, allowlisted: `agentops estate status` -> scripts/estate_status.py,
