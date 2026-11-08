@@ -28,6 +28,8 @@ def probe(
     request_id_factory: Callable[[], str] = lambda: str(uuid4()),
 ) -> dict[str, Any]:
     token = credential_path.read_text(encoding="utf-8").strip()
+    if not token or any(c.isspace() or ord(c) < 32 for c in token):
+        raise SystemExit("credential file must hold one token with no whitespace")
     if not token:
         raise ValueError("credential file is empty")
     if not repo_id.strip():

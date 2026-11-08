@@ -34,8 +34,9 @@ the Vuoro/Sprintctl API credential
 
 The durable fix belongs at either end of this handoff: vuoro-client can send
 `X-Request-ID` equal to the body ID on `/api/invoke/v1`, or the gateway PAT
-proxy can use the body ID when creating the signed identity, as connector
-`dispatch_operation` does. The probe uses the verified matching-header
+proxy can sign with the body `request_id` (connector `dispatch_operation`
+avoids the mismatch by building its own envelope with the middleware ID).
+Line numbers refer to vuoro-cloud `bcc55a9`; they have since moved. The probe uses the verified matching-header
 workaround until that fix is deployed. `/mcp` refusing workspace tokens is by
 design; it is the OAuth/MCP route, not the PAT work API. Cloudflare returns
 error 1010 for Python's default User-Agent, so the probe uses the plain client
