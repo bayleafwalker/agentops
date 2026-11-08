@@ -26,6 +26,7 @@ therefore given only the OTLP envelope, built fresh from `resourceSpans` /
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import urllib.error
@@ -56,10 +57,21 @@ def _post(url: str, body: dict[str, Any], headers: dict[str, str], timeout: floa
     for key, value in headers.items():
         request.add_header(key, value)
     try:
-        urllib.request.urlopen(request, timeout=timeout)
+        response = urllib.request.urlopen(request, timeout=timeout)
+    except urllib.error.HTTPError as response:
+        # HTTPError is also the response object for non-2xx replies. Close it
+        # without reading or retaining the collector body.
+        with contextlib.suppress(Exception):
+            response.close()
     except (urllib.error.URLError, OSError, ValueError):
         # Fail-open: a broken collector must never raise through to the caller.
         return
+    else:
+        # urlopen returns a live HTTPResponse. Closing it prevents a stream of
+        # observations from retaining sockets/file descriptors in a long-lived
+        # harness process. Do not consume arbitrary collector response bodies.
+        with contextlib.suppress(Exception):
+            response.close()
 
 
 def export(batch: dict[str, Any], *, timeout: float = _DEFAULT_TIMEOUT_SECONDS) -> None:
