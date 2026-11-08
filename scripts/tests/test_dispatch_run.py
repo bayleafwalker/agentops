@@ -278,6 +278,53 @@ def test_non_utf8_worker_output_is_replaced(tmp_path):
     assert record["outcome"] == "done"
 
 
+@pytest.mark.parametrize("worker", ["codex", "opencode"])
+def test_large_worker_output_does_not_block_and_keeps_final_message(tmp_path, worker):
+    tree, fakebin = setup(tmp_path)
+    script = fakebin / worker
+    if worker == "codex":
+        source = script.read_text()
+        source = source.replace('printf \'%s\\n\' "$FAKE_OUTPUT"',
+                                "python3 -c 'import sys; print(\"x\" * 1200000); print(\"answer\")'")
+        source = source.replace('printf \'%s\\n\' "$FAKE_ERR" >&2',
+                                "python3 -c 'import sys; print(\"y\" * 1200000, file=sys.stderr)'")
+        script.write_text(source)
+        script.chmod(0o755)
+        result, record = invoke(tmp_path, tree, fakebin, extra=("--timeout", "5"), final="final answer")
+    else:
+        script.write_text("#!/usr/bin/env python3\nimport sys\n"
+                          "if sys.argv[1:] == ['run', '--help']:\n print('opencode run --model --format'); raise SystemExit(0)\n"
+                          "print('z' * 1200000)\n"
+                          "print('{\"type\":\"text\",\"part\":{\"text\":\"final answer\"}}')\n"
+                          "print('e' * 1200000, file=sys.stderr)\n")
+        script.chmod(0o755)
+        status = tmp_path / "opencode-large.json"
+        env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", TMPDIR=str(tmp_path))
+        started = time.monotonic()
+        result = subprocess.run([sys.executable, str(SCRIPT), "--worker", "opencode", "--model", "provider/model",
+                                 "--data-boundary-attested", "--worktree", str(tree), "--status-file", str(status),
+                                 "--timeout", "5", "prompt"], env=env, text=True, capture_output=True, timeout=8)
+        assert time.monotonic() - started < 5
+        record = json.loads(status.read_text())
+    assert result.returncode == 0
+    assert record["outcome"] == "done"
+    assert record["final_message_tail"] == "final answer"
+    assert not list(tmp_path.glob("agentops-dispatch-*"))
+
+
+def test_large_worker_output_timeout_records_124_and_cleans_temp_files(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    worker = fakebin / "codex"
+    source = worker.read_text().replace('printf \'%s\\n\' "$FAKE_OUTPUT"',
+                                         "python3 -c 'print(\"x\" * 1200000)'\nsleep 2")
+    worker.write_text(source)
+    worker.chmod(0o755)
+    result, record = invoke(tmp_path, tree, fakebin, extra=("--timeout", "0.2"), final="answer")
+    assert result.returncode == 124
+    assert record["outcome"] == "failed" and record["exit_code"] == 124
+    assert not list(tmp_path.glob("agentops-dispatch-*"))
+
+
 def test_opencode_ignores_non_dict_json_lines(tmp_path):
     tree, fakebin = setup(tmp_path)
     opencode = fakebin / "opencode"

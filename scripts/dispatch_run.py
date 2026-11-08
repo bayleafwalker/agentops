@@ -105,6 +105,16 @@ def opencode_final(stdout: str) -> str:
     return "\n".join(parts)
 
 
+def read_tail(path: Path, limit: int = 8 * 1024 * 1024) -> str:
+    """Read only the end of a worker output file, where its final message lives."""
+    with path.open("rb") as stream:
+        stream.seek(0, os.SEEK_END)
+        size = stream.tell()
+        stream.seek(max(0, size - limit))
+        data = stream.read(limit)
+    return data.decode("utf-8", errors="replace")
+
+
 def escalation(final: str) -> tuple[bool, str | None]:
     cleaned = [re.sub(r"[*`]", "", line).strip().lstrip("#").strip() for line in final.splitlines()]
     cleaned = [re.sub(r"^_+|_+$", "", re.sub(r"^_*(DISPATCH_OUTCOME|ESCALATION_REASON)_*\s*:", r"\1:", line, flags=re.I)) for line in cleaned]
@@ -138,7 +148,10 @@ def main(argv: list[str] | None = None) -> int:
               "dirty": bool(git(worktree, "status", "--porcelain")), "final_message_tail": "",
               "escalation_reason": None, "started_at": started, "ended_at": None, "model": args.model, "worker": args.worker}
     write_record(status_path, record)
+    temp_dir = None
     temp_path = None
+    stdout_path = None
+    stderr_path = None
     proc = None
 
     finalized = False
@@ -168,21 +181,9 @@ def main(argv: list[str] | None = None) -> int:
                 pass
 
     def bounded_drain() -> tuple[str, str]:
-        if not proc:
+        if not stdout_path or not stderr_path:
             return "", ""
-        try:
-            return proc.communicate(timeout=0.25)
-        except subprocess.TimeoutExpired as exc:
-            stdout = exc.output or ""
-            stderr = exc.stderr or ""
-            if isinstance(stdout, bytes):
-                stdout = stdout.decode("utf-8", errors="replace")
-            if isinstance(stderr, bytes):
-                stderr = stderr.decode("utf-8", errors="replace")
-            for pipe in (proc.stdout, proc.stderr):
-                if pipe:
-                    pipe.close()
-            return stdout, stderr
+        return read_tail(stdout_path), read_tail(stderr_path)
 
     def on_term(signum, frame):
         kill_group()
@@ -193,13 +194,21 @@ def main(argv: list[str] | None = None) -> int:
 
     previous_handlers = {sig: signal.signal(sig, on_term) for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)}
     try:
+        temp_dir = tempfile.TemporaryDirectory(prefix="agentops-dispatch-")
+        private_dir = Path(temp_dir.name)
+        stdout_path, stderr_path = private_dir / "stdout", private_dir / "stderr"
+        stdout_path.touch(mode=0o600)
+        stderr_path.touch(mode=0o600)
         if args.worker == "codex":
-            fd, temp_path = tempfile.mkstemp(prefix="agentops-dispatch-final-")
+            temp_path = str(private_dir / "final-message")
+            fd = os.open(temp_path, os.O_CREAT | os.O_WRONLY, 0o600)
             os.close(fd)
             command += [args.model, "--output-last-message", temp_path, "--", args.prompt]
         else:
             command += [args.model, "--", args.prompt]
-        proc = subprocess.Popen(command, cwd=worktree, text=True, errors="replace", stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+        with stdout_path.open("wb") as stdout_file, stderr_path.open("wb") as stderr_file:
+            proc = subprocess.Popen(command, cwd=worktree, stdin=subprocess.DEVNULL,
+                                    stdout=stdout_file, stderr=stderr_file, start_new_session=True)
         try:
             proc.wait(timeout=args.timeout)
             code = proc.returncode
@@ -214,7 +223,7 @@ def main(argv: list[str] | None = None) -> int:
         if code < 0:
             code = 128 + abs(code)
         if args.worker == "codex" and temp_path and os.path.exists(temp_path):
-            final = Path(temp_path).read_text(encoding="utf-8", errors="replace")
+            final = read_tail(Path(temp_path))
         elif args.worker == "opencode":
             final = opencode_final(stdout or "")
         else:
@@ -248,8 +257,8 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         for sig, handler in previous_handlers.items():
             signal.signal(sig, handler)
-        if temp_path and os.path.exists(temp_path):
-            os.unlink(temp_path)
+        if temp_dir:
+            temp_dir.cleanup()
 
 
 if __name__ == "__main__":
