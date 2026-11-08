@@ -67,6 +67,29 @@ def test_checked_in_devbox_profile_is_valid() -> None:
     assert "work:sprint" not in profile["required_authorities"]
 
 
+def test_checked_in_vuoro_cloud_profile_is_read_only() -> None:
+    environment = validator.validate_environment(ROOT / "environment-record/workstation-linux.vuoro-shared.json")
+    profile = validator.validate_profile(_profile("workstation-vuoro-cloud.json"), environment)
+    assert profile["required_authorities"] == ["work:read"]
+    assert profile["target"]["endpoint"] == "https://api.vuoro.cloud"
+
+
+def test_vuoro_cloud_rejects_any_extra_authority(tmp_path: Path) -> None:
+    environment = validator.validate_environment(ROOT / "environment-record/workstation-linux.vuoro-shared.json")
+    profile = json.loads(_profile("workstation-vuoro-cloud.json").read_text())
+    profile["required_authorities"].append("work:lifecycle")
+    path = tmp_path / "cloud-write.json"
+    path.write_text(json.dumps(profile))
+    with pytest.raises(validator.ProfileError, match="authorities must exactly match"):
+        validator.validate_profile(path, environment)
+
+
+def test_vuoro_shared_profile_authorities_remain_unchanged() -> None:
+    environment = validator.validate_environment(ROOT / "environment-record/workstation-linux.vuoro-shared.json")
+    profile = validator.validate_profile(_profile("workstation-vuoro-shared.json"), environment)
+    assert set(profile["required_authorities"]) == validator.WORKSTATION_OPERATOR_AUTHORITIES
+
+
 def test_shared_profiles_hold_no_claim_authority() -> None:
     # #2556(d): claim authority belongs to hosted/connector paths, not vuoro-shared.
     assert "work:claim" not in validator.WORK_AUTHORITIES

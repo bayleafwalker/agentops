@@ -45,6 +45,17 @@
     },
     "production_endpoint_denied": { "type": "boolean" }
   },
+  "allOf": [
+    {
+      "if": { "properties": { "target": { "properties": { "environment_id": { "const": "vuoro-cloud" } } } } },
+      "then": {
+        "properties": {
+          "required_authorities": { "const": ["work:read"] },
+          "production_endpoint_denied": { "const": false }
+        }
+      }
+    }
+  ],
   "$defs": {
     "token": {
       "type": "string",
