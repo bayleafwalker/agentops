@@ -188,6 +188,13 @@ restricted material into an external prompt. This is why the automatic approval
 review rejected sending a detailed queue contract to OpenCode Go on 2026-11-06:
 the boundary held, and that request is not to be rerouted.
 
+Autonomous implementation lanes (2026-11-08): `lanectl` (`/projects/dev/lanectl`,
+ADR 0001) runs planner-written WorkReleases through `agentops dispatch run` with
+OpenCode Go `deepseek-v4.1-flash` (alias `fast-build`, provider `opencode-go`) in
+isolated worktrees, gates them deterministically and lands candidate trains
+interactively. Its Definition of Ready refuses `data_class = "restricted"`
+releases for external models, enforcing the boundary above.
+
 Use a lightweight deterministic complexity decision when useful; consult an
 advisory classifier such as Jev only for ambiguous cases, with abstention and
 escalation available. Classify the outcome, not every microtask, and reconsider

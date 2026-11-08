@@ -214,6 +214,28 @@ def test_attested_opencode_success_uses_final_json_text(tmp_path):
     assert record["escalation_reason"] == "blocked"
 
 
+def test_opencode_model_value_follows_model_flag(tmp_path):
+    # Regression: argv was `run --model --format json MODEL`, so --model consumed "--format".
+    tree, fakebin = setup(tmp_path)
+    argv_file = tmp_path / "argv"
+    opencode = fakebin / "opencode"
+    opencode.write_text("#!/bin/sh\nif [ \"$1\" = run ] && [ \"$2\" = --help ]; then\n"
+                        "printf '%s\\n' 'opencode run --model --format'\nexit 0\nfi\n"
+                        f"printf '%s\\n' \"$@\" > '{argv_file}'\n"
+                        "printf '%s\\n' '{\"type\":\"text\",\"part\":{\"text\":\"ok\"}}'\n")
+    opencode.chmod(0o755)
+    status = tmp_path / "opencode.json"
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}")
+    result = subprocess.run([sys.executable, str(SCRIPT), "--worker", "opencode", "--model", "provider/model",
+                             "--data-boundary-attested", "--worktree", str(tree), "--status-file", str(status), "prompt"],
+                            env=env, text=True, capture_output=True)
+    argv = argv_file.read_text().splitlines()
+    assert result.returncode == 0
+    assert argv[argv.index("--model") + 1] == "provider/model"
+    assert argv[argv.index("--format") + 1] == "json"
+    assert argv[-2:] == ["--", "prompt"]
+
+
 def test_timeout_kills_worker_and_records_marker(tmp_path):
     tree, fakebin = setup(tmp_path)
     result, record = invoke(tmp_path, tree, fakebin, extra=("--timeout", "0.05"), sleep="2")
