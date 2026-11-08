@@ -293,8 +293,8 @@ def validate_profile(path: Path, environment: dict[str, object]) -> dict[str, ob
     parsed = urlparse(endpoint) if isinstance(endpoint, str) else None
     if parsed is None or parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise ProfileError(f"{path}: target.endpoint must be a credential-free HTTPS URL")
-    if target["environment_class"] != "production" or target["environment_id"] != "vuoro-shared":
-        raise ProfileError(f"{path}: only the primary vuoro-shared production target is allowed")
+    if target["environment_class"] != "production" or target["environment_id"] not in {"vuoro-shared", "vuoro-cloud"}:
+        raise ProfileError(f"{path}: only the primary vuoro-shared production target or read-only vuoro-cloud production target is allowed")
     credential_ref = value["credential_ref"]
     if not isinstance(credential_ref, str) or not re.fullmatch(r"file:(?:/|~/).+", credential_ref):
         raise ProfileError(f"{path}: credential_ref must be a local file reference, never a token or URL")
@@ -309,12 +309,17 @@ def validate_profile(path: Path, environment: dict[str, object]) -> dict[str, ob
         if environment["id"] != bound:
             raise ProfileError(f"{path}: native evidence profile is bound to {bound}")
         expected_authorities = NATIVE_EVIDENCE_AUTHORITIES
+    if target["environment_id"] == "vuoro-cloud":
+        # Applied last so no profile id can widen a vuoro-cloud target.
+        expected_authorities = {"work:read"}
     missing = expected_authorities - authorities
     extra = authorities - expected_authorities
     if missing or extra:
         raise ProfileError(f"{path}: authorities must exactly match the declared profile purpose; missing={sorted(missing)} extra={sorted(extra)}")
+    # false means this production target is explicitly enabled; vuoro-cloud is
+    # enabled only for its exact read-only authority set above.
     if value["production_endpoint_denied"] is not False:
-        raise ProfileError(f"{path}: production_endpoint_denied must be false for the primary authority")
+        raise ProfileError(f"{path}: production_endpoint_denied must be false for an explicitly enabled production target")
     return value
 
 
