@@ -16,6 +16,9 @@ import re
 import subprocess
 import sys
 import tempfile
+import os
+import threading
+import time
 from unittest import mock
 import unittest
 from collections import Counter
@@ -68,6 +71,53 @@ class CloudCredentialHardeningTests(unittest.TestCase):
         self.assertIn("symlink", self.credential(b"token", symlink=True)[1])
         for value in ("☃".encode(), b"a\x00b", b"a\x7fb"):
             self.assertIsNone(self.credential(value)[0])
+
+    def test_special_files_and_oversize_credentials_are_rejected_without_blocking(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile = root / "profile.json"
+            fifo = root / "fifo"
+            os.mkfifo(fifo, 0o600)
+            profile.write_text(json.dumps({"credential_ref": f"file:{fifo}"}))
+            result = []
+            thread = threading.Thread(target=lambda: result.append(estate._workspace_credential(profile)))
+            thread.start(); thread.join(1)
+            self.assertFalse(thread.is_alive())
+            self.assertIsNone(result[0][0])
+            directory = root / "dir"; directory.mkdir()
+            self.assertIsNone(estate._read_credential(directory, "test")[0])
+            oversized = root / "large"; oversized.write_bytes(b"x" * 4097); oversized.chmod(0o600)
+            self.assertIsNone(estate._read_credential(oversized, "test")[0])
+
+    def test_any_token_substring_is_redacted_and_auth_errors_hide_body(self):
+        token = "zzFAKEtok3nQ9x7Lm2Pv8Rw4Ks6Hd1Jf5Gb0Nc"
+        class Response:
+            def __init__(self, status, body): self.status, self.body = status, body; self.headers = {"Content-Type": "text/plain"}
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+            def read(self, _limit): return self.body.encode()
+        for status, fragment in ((401, token[5:15]), (403, token[-12:]), (200, token[3:20]), (200, token[4:16])):
+            opener = mock.MagicMock(); opener.open.return_value = Response(status, "echo=" + fragment)
+            with self.subTest(status=status, fragment=fragment), mock.patch.object(
+                    estate.urllib.request, "build_opener", return_value=opener):
+                result = estate.Probe().http("echo", "http://fixture.invalid/",
+                                             secret_headers={"Authorization": "Bearer " + token})
+                self.assertNotIn(fragment, json.dumps(result))
+                if status in (401, 403): self.assertEqual(result["error"], f"HTTP {status}: ")
+
+    def test_header_value_exception_is_fixed_and_operator_uses_hardened_reader(self):
+        token = "zzFAKEtok3nQ9x7Lm2Pv8Rw4Ks6Hd1Jf5Gb0Nc"
+        opener = mock.MagicMock(); opener.open.side_effect = ValueError(f"Invalid header value b'Bearer {token}'")
+        with mock.patch.object(estate.urllib.request, "build_opener", return_value=opener):
+            result = estate.Probe().http("bad", "http://fixture.invalid/",
+                                         secret_headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(result["error"], "request header rejected")
+        self.assertNotIn(token, json.dumps(result))
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp) / "operator"; directory.mkdir()
+            self.assertIsNone(estate._read_credential(directory, "operator credential")[0])
+            binary = Path(tmp) / "binary"; binary.write_bytes(b"\xff"); binary.chmod(0o600)
+            self.assertIsNone(estate._read_credential(binary, "operator credential")[0])
 
     def test_secret_redirect_refused_and_response_partial_echo_redacted(self):
         second_host_requests = []

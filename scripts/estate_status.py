@@ -53,6 +53,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import http.client
+import errno
 import stat
 import json
 import math
@@ -186,6 +187,31 @@ def redact(text: str) -> str:
         text = pattern.sub(replacement, text)
     # JSON (and JSON-in-text) string values under credential-like keys: "password": "x".
     return _JSON_STRING_PAIR.sub(_redact_json_pair, text)
+
+
+def _redact_token_fragments(value: Any, secrets: list[str]) -> Any:
+    if isinstance(value, str):
+        for secret in secrets:
+            token = secret[7:] if secret.lower().startswith("bearer ") else secret
+            if len(token) < 8:
+                continue
+            spans = []
+            for i in range(len(token) - 7):
+                gram = token[i:i + 8]
+                start = 0
+                while (at := value.find(gram, start)) >= 0:
+                    spans.append((at, at + 8)); start = at + 1
+            if spans:
+                spans.sort(); merged = []
+                for a, b in spans:
+                    if merged and a <= merged[-1][1]: merged[-1] = (merged[-1][0], max(b, merged[-1][1]))
+                    else: merged.append((a, b))
+                for a, b in reversed(merged): value = value[:a] + "[REDACTED]" + value[b:]
+        return redact(value)
+    if isinstance(value, dict): return {k: _redact_token_fragments(v, secrets) for k, v in value.items()}
+    if isinstance(value, list): return [_redact_token_fragments(v, secrets) for v in value]
+    if isinstance(value, tuple): return tuple(_redact_token_fragments(v, secrets) for v in value)
+    return value
 
 
 # ---------------------------------------------------------------- emit guard
@@ -399,6 +425,7 @@ class Probe:
     def __init__(self, *, record: Path | None = None, replay: Path | None = None) -> None:
         self.record = record
         self.replay = replay
+        self._secrets: list[str] = []
         if record:
             record.mkdir(parents=True, exist_ok=True)
 
@@ -429,6 +456,7 @@ class Probe:
         return json.loads(path.read_text(encoding="utf-8"))
 
     def _store(self, key: str, result: dict[str, Any]) -> dict[str, Any]:
+        result = _redact_token_fragments(result, self._secrets)
         if self.record:
             self._fixture(key).write_text(json.dumps(result, indent=1, sort_keys=True) + "\n",
                                           encoding="utf-8")
@@ -477,6 +505,7 @@ class Probe:
         request = urllib.request.Request(url, method="GET", headers={"User-Agent": USER_AGENT, **(headers or {})})
         for name, value in (secret_headers or {}).items():
             request.add_unredirected_header(name, value)
+            self._secrets.append(value)
         observed = _now()
         shown = " ".join(f"-H '{k}: {v}'" for k, v in (headers or {}).items())
         if secret_headers:
@@ -493,12 +522,16 @@ class Probe:
                 status, body, hdrs = response.status, response.read(400_001), dict(response.headers)
         except urllib.error.HTTPError as error:
             if error.code in (301, 302, 303, 307, 308) and secret_headers:
+                error.close()
                 return self._store(key, {"ok": False, "status": None, "body": "", "error": "redirect refused",
                                          "observed_at": observed, "evidence": evidence})
             status, body, hdrs = error.code, error.read(400_001), dict(error.headers or {})
-        except (urllib.error.URLError, OSError, TimeoutError, ValueError, UnicodeError, http.client.HTTPException) as error:
+        except (ValueError, UnicodeError):
             return self._store(key, {"ok": False, "status": None, "body": "",
-                                     "error": f"unreachable: {getattr(error, 'reason', error)}",
+                                     "error": "request header rejected", "observed_at": observed, "evidence": evidence})
+        except (urllib.error.URLError, OSError, TimeoutError, http.client.HTTPException) as error:
+            return self._store(key, {"ok": False, "status": None, "body": "",
+                                     "error": f"unreachable: {getattr(error, 'reason', None) if isinstance(getattr(error, 'reason', None), str) else 'request failed'}",
                                      "observed_at": observed, "evidence": evidence})
         keep = {k.lower(): v for k, v in hdrs.items() if k.lower() in {"etag", "content-type"}}
         decoded = body.decode("utf-8", "replace")
@@ -513,7 +546,7 @@ class Probe:
                   "headers": keep, "observed_at": observed, "evidence": evidence}
         if not result["ok"]:
             content_type = str(keep.get("content-type", "")).lower()
-            detail = "" if "html" in content_type else redact(decoded[:120])
+            detail = "" if "html" in content_type or status in (401, 403) else redact(decoded[:120])
             result["error"] = redact(f"HTTP {status}: {detail}")
         return self._store(key, result)
 
@@ -1141,6 +1174,39 @@ def _catalog_summary(doc: dict[str, Any], result: dict[str, Any]) -> dict[str, A
             "by_domain": dict(sorted(Counter(o.get("owning_domain") for o in ops).items()))}
 
 
+def _read_credential(path: Path, label: str) -> tuple[str | None, str | None]:
+    """Read a private, regular credential file without following links or blocking."""
+    fd = None
+    try:
+        flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC
+        fd = os.open(path, flags)
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode): return None, f"{label} is not a regular file"
+        if info.st_mode & 0o077: return None, f"{label} file is group/world readable"
+        if info.st_uid != os.getuid(): return None, f"{label} file is not owned by the current user"
+        chunks = []
+        size = 0
+        while size <= 4096:
+            chunk = os.read(fd, min(4097 - size, 4097))
+            if not chunk: break
+            chunks.append(chunk); size += len(chunk)
+        if size > 4096: return None, f"{label} exceeds 4096 bytes"
+        token = b"".join(chunks).decode("utf-8")
+    except OSError as error:
+        if error.errno == errno.ELOOP: return None, f"{label} path is a symlink"
+        return None, f"{label} is unreadable"
+    except UnicodeError:
+        return None, f"{label} is unreadable"
+    finally:
+        if fd is not None: os.close(fd)
+    token = token.rstrip("\r\n")
+    if not token: return None, f"{label} is empty"
+    if not token.isascii(): return None, f"{label} contains non-ASCII characters"
+    if not token.isprintable() or any(ch.isspace() for ch in token):
+        return None, f"{label} contains whitespace or control characters"
+    return token, None
+
+
 def _workspace_credential(profile_path: Path) -> tuple[str | None, str | None]:
     """Resolve and read the profile-designated workspace bearer token."""
     try:
@@ -1151,25 +1217,7 @@ def _workspace_credential(profile_path: Path) -> tuple[str | None, str | None]:
     if not isinstance(ref, str) or not (ref.startswith("file:~/") or ref.startswith("file:/")):
         return None, "no workspace credential designated in the profile record"
     path = Path(ref[5:]).expanduser()
-    try:
-        info = path.lstat()
-        if stat.S_ISLNK(info.st_mode):
-            return None, "workspace credential path is a symlink"
-        if info.st_mode & 0o077:
-            return None, "workspace credential file is group/world readable"
-        if info.st_uid != os.getuid():
-            return None, "workspace credential file is not owned by the current user"
-        token = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeError):
-        return None, f"workspace credential is unreadable at designated path {path}"
-    token = token.rstrip("\r\n")
-    if not token:
-        return None, "workspace credential is empty"
-    if not token.isascii():
-        return None, "workspace credential contains non-ASCII characters"
-    if not token.isprintable() or any(ch.isspace() for ch in token):
-        return None, "workspace credential contains whitespace or control characters"
-    return token, None
+    return _read_credential(path, "workspace credential")
 
 
 def _cloud_handshake_fact(probe: Probe, profile_path: Path, endpoint: str,
@@ -1603,15 +1651,13 @@ def collect_vuoro_cloud(probe: Probe, *, fetch: bool,
             usable["catalog"] = from_probe(catalog, "live-api",
                                            lambda r: _catalog_summary(_json_out(r), r))
     token_file = cfg["operator_token_file"]
-    token = None
-    if not probe.replay and token_file.exists():
-        token = token_file.read_text(encoding="utf-8").strip()
+    token, token_reason = (None, None) if probe.replay else _read_credential(token_file, "operator credential")
     if probe.replay or token:
         rollout = probe.http("vuoro-cloud.rollout-status", cfg["api"] + "/api/control/v1/operator/rollout/status",
                              secret_headers={"Authorization": f"Bearer {token}"} if token else None)
         usable["fleet_rollout"] = from_probe(rollout, "live-api", _json_out)
     else:
-        usable["fleet_rollout"] = unknown(f"operator token file {token_file} absent", "live-api",
+        usable["fleet_rollout"] = unknown(token_reason or "operator credential is unavailable", "live-api",
                                           f"GET {cfg['api']}/api/control/v1/operator/rollout/status")
     token = None
 
