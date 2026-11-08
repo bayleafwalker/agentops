@@ -292,8 +292,15 @@ class ExportPostsWhenEndpointIsSet(unittest.TestCase):
         import os
 
         requests_seen = []
+        responses_seen = []
 
         class _FakeResponse:
+            def __init__(self):
+                self.closed = False
+
+            def close(self):
+                self.closed = True
+
             def __enter__(self):
                 return self
 
@@ -302,7 +309,9 @@ class ExportPostsWhenEndpointIsSet(unittest.TestCase):
 
         def _fake_urlopen(request, timeout=None):
             requests_seen.append(request)
-            return _FakeResponse()
+            response = _FakeResponse()
+            responses_seen.append(response)
+            return response
 
         orig_urlopen = export_module.urllib.request.urlopen
         export_module.urllib.request.urlopen = _fake_urlopen
@@ -319,6 +328,8 @@ class ExportPostsWhenEndpointIsSet(unittest.TestCase):
 
         urls = {request.full_url for request in requests_seen}
         self.assertEqual(urls, {"https://collector.example/otlp/v1/traces", "https://collector.example/otlp/v1/metrics"})
+        self.assertEqual(len(responses_seen), 2)
+        self.assertTrue(all(response.closed for response in responses_seen))
         for request in requests_seen:
             self.assertEqual(request.get_header("X-api-key"), "secret-value")
             self.assertEqual(request.get_header("X-team"), "agentops")
@@ -335,8 +346,15 @@ class ExportPostsWhenEndpointIsSet(unittest.TestCase):
         import os
 
         requests_seen = []
+        responses_seen = []
 
         class _FakeResponse:
+            def __init__(self):
+                self.closed = False
+
+            def close(self):
+                self.closed = True
+
             def __enter__(self):
                 return self
 
@@ -345,7 +363,9 @@ class ExportPostsWhenEndpointIsSet(unittest.TestCase):
 
         def _fake_urlopen(request, timeout=None):
             requests_seen.append(request)
-            return _FakeResponse()
+            response = _FakeResponse()
+            responses_seen.append(response)
+            return response
 
         orig_urlopen = export_module.urllib.request.urlopen
         export_module.urllib.request.urlopen = _fake_urlopen
@@ -362,6 +382,7 @@ class ExportPostsWhenEndpointIsSet(unittest.TestCase):
             del os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"]
 
         self.assertEqual(len(requests_seen), 2)
+        self.assertTrue(all(response.closed for response in responses_seen))
         for request in requests_seen:
             raw = request.data
             self.assertIsInstance(raw, bytes)
@@ -376,6 +397,58 @@ class ExportPostsWhenEndpointIsSet(unittest.TestCase):
             self.assertNotIn(b"prompt", raw)
             self.assertNotIn(b"tool_output", raw)
             self.assertNotIn(b"authorization", raw)
+
+    def test_non_2xx_http_error_response_is_closed_without_reading_body(self) -> None:
+        import io
+        import os
+        import urllib.error
+        from unittest import mock
+
+        body = io.BytesIO(b"PRIVATE_COLLECTOR_BODY")
+        error = urllib.error.HTTPError(
+            "https://collector.example/otlp/v1/traces",
+            403,
+            "Forbidden",
+            {},
+            body,
+        )
+        with (
+            mock.patch.object(
+                export_module.urllib.request, "urlopen", side_effect=error
+            ),
+            mock.patch.dict(
+                os.environ,
+                {"OTEL_EXPORTER_OTLP_ENDPOINT": "https://collector.example/otlp"},
+            ),
+        ):
+            export_module.export(
+                {"spans": [build_session_span(_load_fixture("session.json"))]}
+            )
+
+        self.assertTrue(body.closed)
+
+    def test_response_close_failure_remains_fail_open(self) -> None:
+        import os
+        from unittest import mock
+
+        class _BrokenClose:
+            def close(self):
+                raise RuntimeError("PRIVATE_COLLECTOR_ERROR")
+
+        with (
+            mock.patch.object(
+                export_module.urllib.request, "urlopen", return_value=_BrokenClose()
+            ),
+            mock.patch.dict(
+                os.environ,
+                {"OTEL_EXPORTER_OTLP_ENDPOINT": "https://collector.example/otlp"},
+            ),
+        ):
+            # Closing the collector response is best-effort and must not escape
+            # into the caller's hook or change its fail-open behavior.
+            export_module.export(
+                {"spans": [build_session_span(_load_fixture("session.json"))]}
+            )
 
 
 if __name__ == "__main__":
