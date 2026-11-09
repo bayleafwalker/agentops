@@ -96,6 +96,28 @@ the claims that conflict with it are corrected here, not applied:
   thing and its successor (for example kctl under estate plan EE-07, hybrid
   dispatch under S2 item 6).
 
+## Decision feedback amendment 2026-11-09
+
+Status: **accepted-operator planning direction**. The operator requested landing
+the revised [decision-record and lane-feedback direction](https://github.com/bayleafwalker/vuoro/blob/main/docs/plans/2026-11-09-decision-records-and-lane-feedback.md).
+This supersedes only E4's blanket instruction that predictive or headroom
+balancing "must not be built toward". Source-qualified allocation belongs to
+[lanectl's existing capacity loop](https://github.com/bayleafwalker/lanectl/blob/main/docs/plans/2026-11-09-decision-records-and-capacity-feedback.md),
+with provider/account pool identity, units, freshness, applicable refresh
+windows, in-flight reservations and outside-lane consumption made explicit.
+Configured budgets and CLI usage totals do not establish subscription
+entitlement or a supported provider quota API. Missing or stale inputs retain
+the previously authorized static/reactive policy; placeholders grant no burn
+capacity and observed exhaustion supplies no
+cross-provider switching permission.
+
+TS-1/TS-2 still keep execution and model choice outside Vuoro. AgentOps records
+native requested/observed bindings and closeout evidence; lanectl owns lane
+allocation and admission; Vuoro supplies portable record semantics and derived
+reads. Preserve the historical E4 observation below without treating it as a
+current provider inventory. Proposed record fields and interfaces require owner
+implementation; this amendment qualifies no runtime behavior or learned router.
+
 ## Target claims
 
 | id | Claim | Status | Source |
@@ -210,6 +232,8 @@ official pages checked; no migration depends on it.
      attempt used. Choosing the next family is the harness's or the dispatcher's act, not the
      substrate's — TS-1 excludes model routing and TS-2 keeps model choice native to the
      harness. The value is that a lost afternoon becomes an event in the record.
+     **Historical 2026-09-17 source assessment; its no-build inference is
+     superseded by the 2026-11-09 decision feedback amendment above.**
      There is no supported programmatic read of plan consumption on either vendor, so
      predictive or headroom balancing — "send this to whichever pool has headroom" — is not
      buildable and must not be built toward; "quota failover" here means reaction to an

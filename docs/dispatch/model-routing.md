@@ -234,6 +234,29 @@ duplicate bookkeeping and utilization targets that manufacture work. Adjust the
 practice as results arrive; retain useful patterns in guidance and mark failed
 ones retired with their evidence. Do not revive the retired hybrid driver.
 
+### Decision feedback planning amendment (2026-11-09)
+
+Status: accepted operator planning direction; implementation interfaces are
+proposed. Extend native `agentops dispatch run` status and existing
+[`outcome-closeout-record/v1`](closeouts/README.md) evidence with stable links to
+[lanectl decision records and capacity feedback](https://github.com/bayleafwalker/lanectl/blob/main/docs/plans/2026-11-09-decision-records-and-capacity-feedback.md),
+following the [portable direction](https://github.com/bayleafwalker/vuoro/blob/main/docs/plans/2026-11-09-decision-records-and-lane-feedback.md).
+The supplied model is a request; record the runtime-reported model/provider,
+runtime version and observation basis separately, including unknown bindings.
+Join attempt and accepted-outcome records without duplicating closeout entry or
+reviving the legacy route emitter. Existing manual closeouts do not establish
+automatic capture.
+
+Lanectl owns allocation/admission; native runtimes retain execution and effective
+model binding. Cheap agents and Jev may consume compact, permitted projections;
+Jev remains advisory for ambiguous semantic choices. Deterministic gates and
+existing acceptance/effect authority remain decisive. Record alternatives,
+policy revision, validity, expiry, actual selection probabilities and later
+dispositions; confidence scores are not selection probabilities. Scale record
+depth with effect class and observe the proposed overhead budget in the lanectl
+plan. No new benchmark gate precedes ordinary dogfooding; this instruction does
+not promote the historical Jev classifier or change its qualification status.
+
 ### Alias guidance
 
 Route implementation by boundedness and uncertainty rather than by diff size:
