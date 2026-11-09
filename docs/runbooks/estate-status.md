@@ -14,27 +14,39 @@ user, tenant or host. The reviewed record is
 `environment-record/vuoro-cloud-operator-self-use.schema.json`.
 
 Each referenced cutover plan and evidence file is bound to the SHA-256 digest
-of its current bytes. The B2 open-rows result comes from the plan's
-`operator-self-use-open-rows:v1` machine-readable block; the record's copy is
-not authoritative. A changed file, including a hand-edited empty open-rows
+of its current bytes. The B2 open-rows result comes from exactly one plan
+`operator-self-use-open-rows:v1` machine-readable block; zero or multiple
+blocks are malformed, and the record's copy is not authoritative. A changed file, including a hand-edited empty open-rows
 marker, fails until reviewed. Updating a digest is the reviewer's act: whenever
 any digest changes, refresh both `reviewer` and `reviewed_on`. `reviewed_on`
 must be on or after every referenced evidence date. Evidence paths must be
 repository-relative, contain no `..` path component, and resolve within the
 repository after symlinks are followed.
 
-The report always prints this exact label form (and the same string appears in
-JSON):
+The report prints the following exact status-dependent label (the same string
+appears in JSON and as the sole operator-self-use Markdown line):
 
-> operator-self-use: `<status>`. NOT release_ready. Valid only for operator-owned workspace(s) kotona; grants nothing to other users, tenants or hosts. release_ready=false. Expires `<YYYY-MM-DD>` (PAT) / void if any condition in profile record lapses.
+> met: `operator-self-use: met. NOT release_ready. Valid only for operator-owned workspace(s) kotona; grants nothing to other users, tenants or hosts. release_ready=false. Expires <YYYY-MM-DD> (<PAT expiry|review age|restored observation age>).`
 
-When not met, it prints an additional line naming the first failed check and
-the actual `release_ready` value (or `unknown` when it is not known).
+> not_met: `operator-self-use: not_met (<first failing check, including its B-number when present>). NOT release_ready. release_ready=<true|false|unknown>.`
+
+> void: `operator-self-use: void (release_ready=<true|false|null>; <void reason>). NOT release_ready.`
+
+The qualification is void on and after the Expires date and when review age
+reaches 90 days. This intentionally makes the PAT expiry day itself void
+(previously it could still report met on that day).
+
+**Change note (2026-11-09):** PAT expiry now takes effect on its stated date;
+the reported `Expires` date is void on and after that date.
 `void` indicates invalidating record conditions such as expiry, revocation,
 stale recovery evidence, a newer rehearsal, changed pins, changed fallback,
 scope expansion or stale review. B7 is waived only while
 `desired.release_ready` is false. The qualification is time-bounded to the PAT
 and review and is not a release qualification.
+
+### Known limits
+
+- None currently identified for the #522 follow-ups; all listed cases are covered by implementation and regression tests.
 
 ## CLI
 

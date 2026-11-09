@@ -21,15 +21,5 @@
     "profile": "environment-record/profiles/workstation-vuoro-cloud.json",
     "cutover_plan": "docs/plans/2026-11-08-vuoro-cloud-record-family-cutover.md",
     "cutover_plan_sha256": "3d9aa6901832f706f538955507673e946dc9d5856ff8afff758ba65b7eaf08eb"
-  },
-  "cutover_open_rows": [
-    "kctl estate and source scope",
-    "legacy knowledge row inventory",
-    "Workspace knowledge scope",
-    "TS-13 mapping decision",
-    "metanarrative authoritative stores",
-    "target ledger inventory interfaces",
-    "protected acceptance and receipt scope",
-    "local sprintctl SQLite inventory and count interface"
-  ]
+  }
 }
