@@ -75,6 +75,11 @@ the coordinator; it does not make the primary write successful, so the wrapper
 exits nonzero if the worker succeeded (exit code 1); otherwise it preserves the
 worker's terminal exit code.
 
+After a failed terminal write, the primary status file stays `running`; the
+fallback file carries the terminal result. If writing the final transcript to a
+closed stdout pipe fails after status commit, the wrapper preserves the
+committed worker exit code and status record.
+
 Optional follow-up: a separate watcher may register Vuoro run records and
 report outcomes via `register_run` / `report_outcome`; this wrapper intentionally
 does not integrate with Vuoro.
