@@ -469,12 +469,18 @@ implementation (epoch tagging, import, conflict surfacing) may come later
 
 **Transition (until Q1(b) lands).** Today local sprintctl and auditctl writes
 go to `vuoro-shared` (and auditctl shards), while hosted and interactive runs
-write to vuoro.cloud. kctl is different: its records live in per-repo local
-SQLite stores (`<repo>/.kctl/kctl.db`; verified 2026-11-09 under four
-workstation repositories) and are not written to `vuoro-shared`. This text
-previously listed kctl with the `vuoro-shared` writers, which did not match
-the stores on disk; whether kctl is in scope for the cutover (#2536) remains an
-open owner question (TS-13/S4 is only `proposed`). That is not the NORMAL state above and
+write to vuoro.cloud. kctl is different. Its historical candidates and
+publications live in local SQLite (`$KCTL_DB`, set per repository by
+`.envrc`, default `~/.kctl/kctl.db`; four repository stores plus the home
+default store were observed 2026-11-09), with Git-rendered projections. On
+workstation repositories `SPRINTCTL_BACKEND=served` routes kctl extract and
+review to the retained legacy candidate/review adapter on `vuoro-shared`
+instead of local SQLite (publish, render and export are unavailable in served
+mode). The deployed `vuoro-shared` catalog exposes Workspace `knowledge`
+operations, not that legacy catalog, and has no kctl bridge, so kctl has no
+live served write path. Whether legacy `knowledge/v1` rows remain, and whether
+kctl is in scope for the cutover (#2536), are open owner questions
+(TS-13/S4 is only `proposed`). That is not the NORMAL state above and
 not an outage epoch; it is the pre-cutover arrangement. The rule during it:
 each record family has exactly one named authoritative store and is never
 written to both. Local work changes: `vuoro-shared` (or local SQLite). Local
