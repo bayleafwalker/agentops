@@ -193,9 +193,6 @@ def main(argv: list[str] | None = None) -> int:
     class _DispatchInterrupted(Exception):
         pass
 
-    class _TerminalRecordFailure(Exception):
-        pass
-
     def finish(outcome: str, code: int, final: str = "", reason: str | None = None) -> bool:
         nonlocal finalized, terminal_write_failed
         if finalized:
@@ -340,8 +337,8 @@ def main(argv: list[str] | None = None) -> int:
         print(safe_tail(transcript), end="\n" if transcript else "")
         if not terminal_write_failed:
             print(f"agentops dispatch run: {record['outcome']}; status: {status_path}", file=sys.stderr)
-        if terminal_write_failed and result_code == 0:
-            return 1
+        if terminal_write_failed:
+            return record["exit_code"]
         return result_code or (1 if record["outcome"] == "failed" else 0)
     except _DispatchInterrupted:
         sig = pending_signal or signal.SIGTERM
@@ -350,8 +347,6 @@ def main(argv: list[str] | None = None) -> int:
         partial = "\n".join(part for part in (partial_out, partial_err) if part)
         finish("failed", 128 + sig, "worker killed by signal" + ("\n" + partial if partial else ""))
         return 128 + sig
-    except _TerminalRecordFailure:
-        return 128 + (pending_signal or signal.SIGTERM) if pending_signal is not None else 1
     except OSError as exc:
         terminate_group()
         partial_out, partial_err = bounded_drain()

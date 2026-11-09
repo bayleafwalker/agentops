@@ -51,7 +51,7 @@ A signal received
 while the terminal record is being atomically committed does not change the
 committed outcome or process exit code. Worker exit zero writes `done`, nonzero writes
 `failed`, and the explicit `DISPATCH_OUTCOME: ESCALATED` marker in the worker's
-final message writes `escalated` even if the process exits nonzero. Include
+final message writes `escalated` even if the worker exits nonzero. Include
 `ESCALATION_REASON: …` for a concise reason.
 
 The wrapper exits 0 for `done` or `escalated`, preserves a failed worker's exit
@@ -68,6 +68,12 @@ the worktree if the record should not make that worktree dirty. The wrapper
 does not pass extra network/effect grants or credentials, and stores no
 environment dump or secret values. The worker retains only its native sandbox
 and the caller-selected worktree.
+
+If writing the terminal status file fails, the wrapper attempts to write the
+terminal result to `<status-file>.fallback.json`. This is a recovery artifact for
+the coordinator; it does not make the primary write successful, so the wrapper
+exits nonzero if the worker succeeded (exit code 1); otherwise it preserves the
+worker's terminal exit code.
 
 Optional follow-up: a separate watcher may register Vuoro run records and
 report outcomes via `register_run` / `report_outcome`; this wrapper intentionally

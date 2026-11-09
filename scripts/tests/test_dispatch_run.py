@@ -640,6 +640,29 @@ def test_terminal_record_failure_uses_fallback_and_exits_nonzero(tmp_path):
     assert fallback["outcome"] == "failed" and fallback["exit_code"] == 1
 
 
+def test_escalated_nonzero_worker_with_terminal_write_failure_preserves_exit_code(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    status = tmp_path / "escalated-failure.json"
+    code = textwrap.dedent(f"""
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('dispatch_run', {str(SCRIPT)!r})
+        m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+        real = m.write_record
+        def failing(path, record):
+            if str(path) == {str(status)!r} and record['outcome'] != 'running': raise OSError('disk full')
+            return real(path, record)
+        m.write_record = failing
+        raise SystemExit(m.main(['--worker', 'codex', '--model', 'm', '--worktree', {str(tree)!r},
+                                '--status-file', {str(status)!r}, 'prompt']))
+    """)
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", FAKE_FINAL="DISPATCH_OUTCOME: ESCALATED\nESCALATION_REASON: blocked",
+               FAKE_OUTPUT="", FAKE_ERR="", FAKE_EXIT="7", ARGV_FILE=str(tmp_path / "argv"))
+    result = subprocess.run([sys.executable, "-c", code], env=env, text=True, capture_output=True)
+    fallback = json.loads(Path(str(status) + ".fallback.json").read_text())
+    assert result.returncode == fallback["exit_code"] == 7
+    assert fallback["outcome"] == "escalated" and fallback["exit_code"] == 7
+
+
 def test_terminal_write_failure_during_signal_keeps_signal_code_and_fallback(tmp_path):
     tree, fakebin = setup(tmp_path)
     status = tmp_path / "signal-write-failure.json"
