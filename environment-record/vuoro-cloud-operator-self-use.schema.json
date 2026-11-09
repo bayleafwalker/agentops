@@ -4,12 +4,12 @@
   "title": "vuoro.cloud operator-self-use qualification record v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "scope", "reviewer", "reviewed_on", "pat", "fallback_environment", "vuoro_shared_fallback", "evidence_refs", "cutover_open_rows"],
+  "required": ["schema_version", "scope", "reviewer", "reviewed_on", "pat", "fallback_environment", "vuoro_shared_fallback", "evidence_refs"],
   "properties": {
     "schema_version": {"const": "vuoro-cloud-operator-self-use/v1"},
     "scope": {"type": "object", "additionalProperties": false, "required": ["environment_id", "workspace_id", "workspaces", "operator_owned", "host_owner"], "properties": {"environment_id": {"const": "vuoro-cloud"}, "workspace_id": {"const": "01M3ABJS1QW0Q6BNDCHP0DDTYF"}, "workspaces": {"type": "array", "items": {"const": "kotona"}, "minItems": 1}, "operator_owned": {"type": "boolean"}, "host_owner": {"type": "string"}}},
     "reviewer": {"type": "string", "minLength": 1}, "reviewed_on": {"type": "string", "format": "date"},
-    "pat": {"type": "object", "additionalProperties": false, "required": ["id", "expires_on", "workspace", "authorities"], "properties": {"id": {"type": "string", "minLength": 1}, "expires_on": {"type": "string", "format": "date"}, "workspace": {"const": "kotona"}, "authorities": {"type": "array", "items": {"const": "work:read"}, "minItems": 1, "maxItems": 1}}},
+    "pat": {"type": "object", "additionalProperties": false, "required": ["id", "expires_on", "workspace", "authorities"], "properties": {"id": {"type": "string", "minLength": 1}, "expires_on": {"type": "string", "format": "date", "description": "PAT is void on and after the Expires date."}, "workspace": {"const": "kotona"}, "authorities": {"type": "array", "items": {"const": "work:read"}, "minItems": 1, "maxItems": 1}}},
     "fallback_environment": {"const": "vuoro-shared"}, "vuoro_shared_fallback": {"type": "boolean"},
     "evidence_refs": {
       "type": "object",
@@ -45,7 +45,6 @@
         ,"cutover_rehearsal": {"type": "string", "minLength": 1}
       }
     },
-    "cutover_open_rows": {"type": "array", "items": {"type": "string"}},
     "latest_restored_observation": {"type": "object"},
     "rehearsal_on": {"type": "string", "format": "date"}, "pat_reissued": {"type": "boolean"}, "revoked": {"type": "boolean"},
     "tenant_runtime_pin_changed_after_composition": {"type": "boolean"},

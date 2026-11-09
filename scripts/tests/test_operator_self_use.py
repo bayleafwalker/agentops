@@ -71,7 +71,7 @@ class OperatorSelfUseTests(unittest.TestCase):
                 "composition_qualification": {"ref": "receipts/composition.json", "pinned_pair": PAIR, "sha256": digest("receipts/composition.json")},
                 "restored_observation": "evidence/observation.json", "restored_observation_sha256": digest("evidence/observation.json"),
                 "cutover_rehearsal": "evidence/rehearsal.json", "cutover_rehearsal_sha256": digest("evidence/rehearsal.json")},
-            "cutover_open_rows": []}
+            }
 
     def evaluate(self, rec=None, ready=False, day="2026-11-08", pins=PAIR):
         rec = rec or self.record()
@@ -105,7 +105,6 @@ class OperatorSelfUseTests(unittest.TestCase):
     def test_checked_evidence_and_hand_edit_attempts(self):
         r = self.record(); self.assertEqual(self.evaluate(r)["status"], "met")
         # Editing an attestation alone cannot manufacture a clear plan or evidence.
-        r["cutover_open_rows"] = []
         r["evidence_refs"]["composition_qualification"]["ref"] = "missing.json"
         self.assertIn(self.evaluate(r)["status"], ("not_met", "void"))
         r = self.record(); r["evidence_refs"]["cutover_plan"] = "wrong.md"
@@ -130,7 +129,7 @@ class OperatorSelfUseTests(unittest.TestCase):
         self.assertEqual(expiry_day["void_reason"], "PAT is past expiry")
         self.assertEqual(self.evaluate(r, day="2026-11-29")["status"], "void")
         r = self.record(); r["reviewed_on"] = "2026-08-10"; r["pat"]["expires_on"] = "2026-12-08"
-        self.assertEqual(self.evaluate(r, day="2026-11-08")["status"], "not_met")
+        self.assertEqual(self.evaluate(r, day="2026-11-08")["status"], "void")
         r["reviewed_on"] = "2026-08-09"
         self.assertEqual(self.evaluate(r, day="2026-11-08")["status"], "void")
         r = self.record(); (self.root / "evidence/observation.json").write_text('{"status":"restored","date":"2026-10-10"}')
@@ -214,7 +213,7 @@ class OperatorSelfUseTests(unittest.TestCase):
         (self.root / "docs/plans/2026-11-08-vuoro-cloud-record-family-cutover.md").write_text(self.plan.replace("[]", '["row"]'))
         self.assertEqual(self.evaluate(rec)["first_failing_check"], "B2 cutover plan has open in-scope rows")
         result = self.evaluate(rec)
-        self.assertNotIn("B2", result["label"])
+        self.assertIn("B2", result["label"])
         self.assertIn("B2", result["first_failing_check"])
         rec = self.record(); out = estate.evaluate_operator_self_use(rec, desired_release_ready={"status": "unknown", "value": None}, today=datetime.date(2026, 11, 8), pinned_pair=PAIR)
         self.assertIn("release_ready=unknown", out["label"])
@@ -227,6 +226,24 @@ class OperatorSelfUseTests(unittest.TestCase):
         self.assertIn("B2", self.evaluate(rec)["first_failing_check"])
         plan.write_text(self.plan)
         self.assertIn("record-family-cutover.md digest mismatch", self.evaluate(rec)["first_failing_check"])
+
+    def test_exactly_one_open_rows_marker_required(self):
+        rec = self.record()
+        plan = self.root / "docs/plans/2026-11-08-vuoro-cloud-record-family-cutover.md"
+        plan.write_text(self.plan + '<!-- operator-self-use-open-rows:v1\n["open row"]\n-->\n')
+        rec["evidence_refs"]["cutover_plan_sha256"] = hashlib.sha256(plan.read_bytes()).hexdigest()
+        result = self.evaluate(rec)
+        self.assertEqual(result["status"], "not_met")
+        self.assertIn("exactly one", result["first_failing_check"])
+
+    def test_partially_unknown_live_pair_is_not_a_pin_change(self):
+        result = self.evaluate(pins={"tenant_runtime_pin": "runtime", "sprintctl_version": None})
+        self.assertEqual(result["status"], "not_met")
+        self.assertIn("live pair unknown", result["label"])
+
+    def test_nul_evidence_ref_is_rejected_and_non_string_is_described(self):
+        self.assertEqual(estate._bound_evidence_path("evidence/\x00bad", "x"), (None, "evidence path is invalid"))
+        self.assertEqual(estate._bound_evidence_path(42, "x"), (None, "evidence reference is missing or not a string"))
 
 
 if __name__ == "__main__": unittest.main()

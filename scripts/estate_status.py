@@ -1819,10 +1819,10 @@ def evaluate_operator_self_use(record: dict[str, Any], *, desired_release_ready:
         void = "reviewed_on date is missing or invalid"
     elif reviewed > today:
         void = "reviewed_on is in the future"
-    elif (today - reviewed).days > 90:
-        void = "reviewed_on is older than 90 days"
+    elif (today - reviewed).days >= 90:
+        void = "reviewed_on is at least 90 days old"
     elif (record.get("tenant_runtime_pin_changed_after_composition") or
-          (isinstance(composition, dict) and pinned_pair and composition.get("pinned_pair")
+          (isinstance(composition, dict) and pinned_pair and all(pinned_pair.get(k) for k in ("tenant_runtime_pin", "sprintctl_version")) and composition.get("pinned_pair")
            and composition.get("pinned_pair") != pinned_pair)):
         void = "tenant runtime or Sprintctl pin changed after composition qualification"
     elif record.get("vuoro_shared_fallback") is False or record.get("fallback_environment") not in (None, "vuoro-shared"):
@@ -1851,7 +1851,9 @@ def evaluate_operator_self_use(record: dict[str, Any], *, desired_release_ready:
     for label, doc, path, error in (("composition receipt", comp_doc, comp_path, comp_error), ("restored observation", obs_doc, obs_path, obs_error), ("rehearsal", rehearsal_doc, rehearsal_path, rehearsal_error)):
         if path is not None and doc is None: evidence_errors.append(f"{label} is malformed or unreadable")
         elif error: evidence_errors.append(error)
-    if plan_path is not None and plan_rows is None: evidence_errors.append("cutover plan open-rows block is malformed or missing")
+    if plan_path is not None and plan_rows is None: evidence_errors.append("cutover plan must contain exactly one valid open-rows marker block")
+    if isinstance(pinned_pair, dict) and any(not pinned_pair.get(k) for k in ("tenant_runtime_pin", "sprintctl_version")):
+        evidence_errors.append("live pair unknown")
     if obs_date and obs_date > today: evidence_errors.append("restored observation date is in the future")
     if rehearsal_date and rehearsal_date > today: evidence_errors.append("rehearsal date is in the future")
     if obs_date and reviewed and obs_date > reviewed: evidence_errors.append("restored observation date is after reviewed_on")
@@ -1869,8 +1871,7 @@ def evaluate_operator_self_use(record: dict[str, Any], *, desired_release_ready:
     elif status == "not_met":
         release_value = desired_release_ready.get("value") if isinstance(desired_release_ready, dict) and desired_release_ready.get("status") == "known" else "unknown"
         rendered_release = json.dumps(release_value) if release_value != "unknown" else "unknown"
-        label_failure = first_failure.removeprefix("B2 ") if first_failure else first_failure
-        label = f"operator-self-use: not_met ({label_failure}). NOT release_ready. release_ready={rendered_release}."
+        label = f"operator-self-use: not_met ({first_failure}). NOT release_ready. release_ready={rendered_release}."
     else:
         governs = "PAT expiry" if expires_date == expiry_date else "review age" if reviewed and expires_date == reviewed + _datetime.timedelta(days=90) else "restored observation age"
         label = f"operator-self-use: met. NOT release_ready. Valid only for operator-owned workspace(s) kotona; grants nothing to other users, tenants or hosts. release_ready=false. Expires {expires} ({governs})."
@@ -1895,17 +1896,13 @@ def _read_json_evidence(path):
     except (OSError, json.JSONDecodeError, UnicodeDecodeError): return None
 
 
-def _cutover_rows(ref):
-    path = _evidence_path(ref)
-    return _cutover_rows_path(path)
-
-
 def _cutover_rows_path(path):
     if not path: return None
     import re
     try:
-        match = re.search(r"<!-- operator-self-use-open-rows:v1\s*(\[.*?\])\s*-->", path.read_text(encoding="utf-8"), re.S)
-        value = json.loads(match.group(1)) if match else None
+        matches = re.findall(r"<!-- operator-self-use-open-rows:v1\s*(\[.*?\])\s*-->", path.read_text(encoding="utf-8"), re.S)
+        if len(matches) != 1: return None
+        value = json.loads(matches[0])
         return value if isinstance(value, list) and all(isinstance(item, str) for item in value) else None
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, AttributeError): return None
 
@@ -1922,7 +1919,9 @@ def _no_restored_observation_age(refs, today):
 def _bound_evidence_path(ref, expected):
     import hashlib
     if not isinstance(ref, str) or not ref:
-        return None, "evidence reference is missing"
+        return None, "evidence reference is missing or not a string"
+    if "\x00" in ref:
+        return None, "evidence path is invalid"
     if Path(ref).is_absolute() or ".." in Path(ref).parts:
         return None, "evidence path is invalid"
     path = _evidence_path(ref)
