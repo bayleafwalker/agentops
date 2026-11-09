@@ -256,6 +256,9 @@ class OperatorSelfUseTests(unittest.TestCase):
             ("indented fence is not a fence", '<!-- operator-self-use-open-rows:v1 [] -->\n    ```\n<!-- operator-self-use-open-rows:v1 ["B2 open"] -->', None),
             ("tilde fence hides open row", '<!-- operator-self-use-open-rows:v1 [] -->\n~~~\n<!-- operator-self-use-open-rows:v1 ["B2 open"] -->\n~~~', None),
             ("quoted open row beside lone empty marker", '<!-- operator-self-use-open-rows:v1 [] -->\n> <!-- operator-self-use-open-rows:v1 ["B2 open"] -->', None),
+            ("fence lines inside the marker body", '<!-- operator-self-use-open-rows:v1 [\n```\n"B2 open"\n```\n] -->', None),
+            ("tilde lines inside the marker body", '<!-- operator-self-use-open-rows:v1 [\n~~~\n"B2 open"\n~~~\n] -->', None),
+            ("quote line inside the marker body", '<!-- operator-self-use-open-rows:v1 [\n> "B2 open"\n] -->', None),
             ("CRLF marker", '<!-- operator-self-use-open-rows:v1\r\n[]\r\n-->\r\n', []),
             ("unterminated marker", '<!-- operator-self-use-open-rows:v1 []', None),
         ]
