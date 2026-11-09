@@ -130,12 +130,19 @@ class OperatorSelfUseTests(unittest.TestCase):
         self.assertEqual(self.evaluate(r, day="2026-11-29")["status"], "void")
         r = self.record(); r["reviewed_on"] = "2026-08-10"; r["pat"]["expires_on"] = "2026-12-08"
         self.assertEqual(self.evaluate(r, day="2026-11-08")["status"], "void")
+        r = self.record(); r["reviewed_on"] = "2026-08-11"; r["pat"]["expires_on"] = "2026-12-08"
+        self.assertNotEqual(self.evaluate(r, day="2026-11-08")["status"], "void")
+        r = self.record(); r["pat"]["expires_on"] = "2026-11-09"
+        self.assertEqual(self.evaluate(r, day="2026-11-08")["status"], "met")
         r["reviewed_on"] = "2026-08-09"
         self.assertEqual(self.evaluate(r, day="2026-11-08")["status"], "void")
         r = self.record(); (self.root / "evidence/observation.json").write_text('{"status":"restored","date":"2026-10-10"}')
         (self.root / "evidence/rehearsal.json").write_text('{"date":"2026-10-09"}')
         self.assertNotEqual(self.evaluate(r, day="2026-11-08")["status"], "void")
         (self.root / "evidence/observation.json").write_text('{"status":"restored","date":"2026-10-09"}')
+        self.assertEqual(self.evaluate(r, day="2026-11-08")["status"], "void")
+        (self.root / "evidence/observation.json").write_text('{"status":"restored","date":"2026-10-08"}')
+        (self.root / "evidence/rehearsal.json").write_text('{"date":"2026-10-07"}')
         self.assertEqual(self.evaluate(r, day="2026-11-08")["status"], "void")
         for value in ("", None, "bad"):
             r = self.record(); r["reviewed_on"] = value
@@ -235,6 +242,25 @@ class OperatorSelfUseTests(unittest.TestCase):
         result = self.evaluate(rec)
         self.assertEqual(result["status"], "not_met")
         self.assertIn("exactly one", result["first_failing_check"])
+
+    def test_open_rows_marker_counts_malformed_and_ignored_occurrences(self):
+        path = self.root / "docs/plans/2026-11-08-vuoro-cloud-record-family-cutover.md"
+        cases = [
+            ("zero markers", "no marker\n", None),
+            ("two empty markers", self.plan + self.plan, None),
+            ("non-array body plus valid marker", '<!-- operator-self-use-open-rows:v1 {"rows":["x"]} -->\n<!-- operator-self-use-open-rows:v1 [] -->', None),
+            ("string body plus valid marker", '<!-- operator-self-use-open-rows:v1 "x" -->\n<!-- operator-self-use-open-rows:v1 [] -->', None),
+            ("fenced marker", '```md\n<!-- operator-self-use-open-rows:v1 [] -->\n```', None),
+            ("quoted marker", '> <!-- operator-self-use-open-rows:v1 [] -->', None),
+            ("CRLF marker", '<!-- operator-self-use-open-rows:v1\r\n[]\r\n-->\r\n', []),
+            ("unterminated marker", '<!-- operator-self-use-open-rows:v1 []', None),
+        ]
+        for name, content, expected in cases:
+            with self.subTest(name=name):
+                path.write_bytes(content.encode())
+                self.assertEqual(estate._cutover_rows_path(path), expected)
+        path.write_bytes(b"<!-- operator-self-use-open-rows:v1 [] -->\xff")
+        self.assertIsNone(estate._cutover_rows_path(path))
 
     def test_partially_unknown_live_pair_is_not_a_pin_change(self):
         result = self.evaluate(pins={"tenant_runtime_pin": "runtime", "sprintctl_version": None})
