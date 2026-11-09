@@ -1900,9 +1900,26 @@ def _cutover_rows_path(path):
     if not path: return None
     import re
     try:
-        matches = re.findall(r"<!-- operator-self-use-open-rows:v1\s*(\[.*?\])\s*-->", path.read_text(encoding="utf-8"), re.S)
-        if len(matches) != 1: return None
-        value = json.loads(matches[0])
+        lines = path.read_text(encoding="utf-8").splitlines()
+        visible = []
+        fence = None
+        for line in lines:
+            stripped = line.lstrip()
+            if fence:
+                if re.match(rf"^{re.escape(fence[0])}{{{len(fence)},}}\s*$", stripped): fence = None
+                continue
+            opening = re.match(r"^(`{3,}|~{3,})", stripped)
+            if opening:
+                fence = opening.group(1)
+                continue
+            if re.match(r"^>\s?", stripped): continue
+            visible.append(line)
+        text = "\n".join(visible)
+        token = "operator-self-use-open-rows:v1"
+        if text.count(token) != 1: return None
+        match = re.search(r"<!--\s*operator-self-use-open-rows:v1\s*(.*?)\s*-->", text, re.S)
+        if not match: return None
+        value = json.loads(match.group(1))
         return value if isinstance(value, list) and all(isinstance(item, str) for item in value) else None
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, AttributeError): return None
 

@@ -14,12 +14,15 @@ user, tenant or host. The reviewed record is
 `environment-record/vuoro-cloud-operator-self-use.schema.json`.
 
 Each referenced cutover plan and evidence file is bound to the SHA-256 digest
-of its current bytes. The B2 open-rows result comes from exactly one plan
-`operator-self-use-open-rows:v1` machine-readable block; zero or multiple
-blocks are malformed, and the record's copy is not authoritative. A changed file, including a hand-edited empty open-rows
-marker, fails until reviewed. Updating a digest is the reviewer's act: whenever
-any digest changes, refresh both `reviewer` and `reviewed_on`. `reviewed_on`
-must be on or after every referenced evidence date. Evidence paths must be
+of its current bytes. The B2 open-rows result comes from exactly one actual
+plan comment block containing `operator-self-use-open-rows:v1`; every
+occurrence outside fenced code and quoted lines is counted, regardless of its
+body. Zero or multiple occurrences, a malformed body, or a marker found only
+inside a fence or quote are malformed, and the record's copy is not
+authoritative. A changed file, including a hand-edited empty open-rows marker,
+fails until reviewed. Updating a digest is the reviewer's act: whenever any
+digest changes, refresh both `reviewer` and `reviewed_on`. `reviewed_on` must
+be on or after every referenced evidence date. Evidence paths must be
 repository-relative, contain no `..` path component, and resolve within the
 repository after symlinks are followed.
 
@@ -46,7 +49,14 @@ and review and is not a release qualification.
 
 ### Known limits
 
-- None currently identified for the #522 follow-ups; all listed cases are covered by implementation and regression tests.
+- Digest binding proves that referenced bytes match the reviewed record; it does
+  not establish that the evidence is truthful or adequate. A reviewer must
+  assess evidence and refresh `reviewer` and `reviewed_on` whenever a digest
+  changes.
+- `review age` is part of the expiry calculation but cannot govern a `met`
+  result: the B5 check requires PAT expiry within 30 days of review, earlier
+  than the 90-day review limit. Met labels therefore name PAT expiry or restored
+  observation age.
 
 ## CLI
 
