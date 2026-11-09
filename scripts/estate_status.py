@@ -1904,25 +1904,31 @@ def _cutover_rows_path(path):
         # Fail closed: the token must occur exactly once anywhere in the raw
         # file, so fence/quote parsing can never hide a second marker.
         if raw.count("operator-self-use-open-rows:v1") != 1: return None
-        lines = raw.splitlines()
-        visible = []
+        lines = raw.splitlines(keepends=True)
+        hidden = []
         fence = None
         for line in lines:
             stripped = line.lstrip()
             if fence:
+                hidden.append(True)
                 if re.match(rf"^{re.escape(fence[0])}{{{len(fence)},}}\s*$", stripped): fence = None
                 continue
             opening = re.match(r"^(`{3,}|~{3,})", stripped)
             if opening:
                 fence = opening.group(1)
+                hidden.append(True)
                 continue
-            if re.match(r"^>\s?", stripped): continue
-            visible.append(line)
-        text = "\n".join(visible)
-        token = "operator-self-use-open-rows:v1"
-        if text.count(token) != 1: return None
-        match = re.search(r"<!--\s*operator-self-use-open-rows:v1\s*(.*?)\s*-->", text, re.S)
+            hidden.append(bool(re.match(r"^>\s?", stripped)))
+        match = re.search(r"<!--\s*operator-self-use-open-rows:v1\s*(.*?)\s*-->", raw, re.S)
         if not match: return None
+        # Every line the comment spans must be visible: a fence or quote line
+        # inside the body would otherwise be dropped from what is parsed.
+        offsets, position = [], 0
+        for line in lines:
+            offsets.append((position, position + len(line)))
+            position += len(line)
+        for (start, end), is_hidden in zip(offsets, hidden):
+            if is_hidden and start < match.end() and end > match.start(): return None
         value = json.loads(match.group(1))
         return value if isinstance(value, list) and all(isinstance(item, str) for item in value) else None
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, AttributeError): return None
