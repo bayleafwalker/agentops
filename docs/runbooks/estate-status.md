@@ -15,10 +15,11 @@ user, tenant or host. The reviewed record is
 
 Each referenced cutover plan and evidence file is bound to the SHA-256 digest
 of its current bytes. The B2 open-rows result comes from exactly one actual
-plan comment block containing `operator-self-use-open-rows:v1`; every
-occurrence outside fenced code and quoted lines is counted, regardless of its
-body. Zero or multiple occurrences, a malformed body, or a marker found only
-inside a fence or quote are malformed, and the record's copy is not
+plan comment block containing `operator-self-use-open-rows:v1`. The token is
+counted across the raw file with no fence or quote stripping, regardless of its
+body or context, and must occur exactly once; that single occurrence must also
+sit outside fenced code and quoted lines. Zero or multiple occurrences, a
+malformed body, or a marker found only inside a fence or quote are malformed, and the record's copy is not
 authoritative. A changed file, including a hand-edited empty open-rows marker,
 fails until reviewed. Updating a digest is the reviewer's act: whenever any
 digest changes, refresh both `reviewer` and `reviewed_on`. `reviewed_on` must

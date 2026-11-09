@@ -1900,7 +1900,11 @@ def _cutover_rows_path(path):
     if not path: return None
     import re
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        raw = path.read_text(encoding="utf-8")
+        # Fail closed: the token must occur exactly once anywhere in the raw
+        # file, so fence/quote parsing can never hide a second marker.
+        if raw.count("operator-self-use-open-rows:v1") != 1: return None
+        lines = raw.splitlines()
         visible = []
         fence = None
         for line in lines:
