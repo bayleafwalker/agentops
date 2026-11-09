@@ -351,7 +351,12 @@ def main(argv: list[str] | None = None) -> int:
                     os.close(null_fd)
                 sys.stdout = open(os.devnull, "w")
             except (OSError, ValueError, AttributeError):
-                pass
+                # Also detach Python's stream if fileno/dup2 is unavailable,
+                # so interpreter shutdown cannot retry the broken flush.
+                try:
+                    sys.stdout = open(os.devnull, "w")
+                except OSError:
+                    pass
         if not terminal_write_failed:
             print(f"agentops dispatch run: {record['outcome']}; status: {status_path}", file=sys.stderr)
         if terminal_write_failed:
