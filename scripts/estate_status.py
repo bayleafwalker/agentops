@@ -1809,7 +1809,7 @@ def evaluate_operator_self_use(record: dict[str, Any], *, desired_release_ready:
         void = "record marked revoked"
     elif not expiry_date:
         void = "PAT expiry date is missing or invalid"
-    elif today > expiry_date:
+    elif today >= expiry_date:
         void = "PAT is past expiry"
     elif record.get("pat_reissued"):
         void = "PAT reissued without record update"
@@ -1869,7 +1869,8 @@ def evaluate_operator_self_use(record: dict[str, Any], *, desired_release_ready:
     elif status == "not_met":
         release_value = desired_release_ready.get("value") if isinstance(desired_release_ready, dict) and desired_release_ready.get("status") == "known" else "unknown"
         rendered_release = json.dumps(release_value) if release_value != "unknown" else "unknown"
-        label = f"operator-self-use: not_met ({first_failure}). NOT release_ready. release_ready={rendered_release}."
+        label_failure = first_failure.removeprefix("B2 ") if first_failure else first_failure
+        label = f"operator-self-use: not_met ({label_failure}). NOT release_ready. release_ready={rendered_release}."
     else:
         governs = "PAT expiry" if expires_date == expiry_date else "review age" if reviewed and expires_date == reviewed + _datetime.timedelta(days=90) else "restored observation age"
         label = f"operator-self-use: met. NOT release_ready. Valid only for operator-owned workspace(s) kotona; grants nothing to other users, tenants or hosts. release_ready=false. Expires {expires} ({governs})."
@@ -1920,7 +1921,9 @@ def _no_restored_observation_age(refs, today):
 
 def _bound_evidence_path(ref, expected):
     import hashlib
-    if not isinstance(ref, str) or not ref or ".." in Path(ref).parts:
+    if not isinstance(ref, str) or not ref:
+        return None, "evidence reference is missing"
+    if Path(ref).is_absolute() or ".." in Path(ref).parts:
         return None, "evidence path is invalid"
     path = _evidence_path(ref)
     if path is None: return None, "evidence file is missing or outside the repository"

@@ -91,6 +91,7 @@ class OperatorSelfUseTests(unittest.TestCase):
         not_met = self.evaluate(bad)
         self.assertEqual(not_met["status"], "not_met")
         self.assertIn("B1", not_met["label"])
+        self.assertIn("NOT release_ready.", not_met["label"])
         void = self.evaluate(ready=True)
         self.assertEqual(void["status"], "void")
         self.assertIn("release_ready=true", void["label"])
@@ -114,7 +115,9 @@ class OperatorSelfUseTests(unittest.TestCase):
         r = self.record(); r["evidence_refs"]["composition_qualification"]["pinned_pair"] = {**PAIR, "sprintctl_version": "wrong"}
         self.assertIn(self.evaluate(r)["status"], ("not_met", "void"))
         r = self.record(); r["evidence_refs"].pop("restored_observation")
-        self.assertEqual(self.evaluate(r)["status"], "not_met")
+        missing_evidence = self.evaluate(r)
+        self.assertEqual(missing_evidence["status"], "not_met")
+        self.assertIn("evidence reference is missing", missing_evidence["first_failing_check"])
         r = self.record(); r["scope"]["workspaces"] = ["other"]
         out = self.evaluate(r); self.assertEqual(out["status"], "void"); self.assertEqual(out["scope"], estate.OPERATOR_SCOPE)
         (self.root / "docs/plans/2026-11-08-vuoro-cloud-record-family-cutover.md").write_text(self.plan.replace("[]", '["open row"]'))
@@ -122,7 +125,9 @@ class OperatorSelfUseTests(unittest.TestCase):
 
     def test_date_boundaries_and_malformed_dates(self):
         r = self.record()
-        self.assertEqual(self.evaluate(r, day="2026-11-28")["status"], "met")
+        expiry_day = self.evaluate(r, day="2026-11-28")
+        self.assertEqual(expiry_day["status"], "void")
+        self.assertEqual(expiry_day["void_reason"], "PAT is past expiry")
         self.assertEqual(self.evaluate(r, day="2026-11-29")["status"], "void")
         r = self.record(); r["reviewed_on"] = "2026-08-10"; r["pat"]["expires_on"] = "2026-12-08"
         self.assertEqual(self.evaluate(r, day="2026-11-08")["status"], "not_met")
@@ -194,6 +199,11 @@ class OperatorSelfUseTests(unittest.TestCase):
         for ref in ("../outside.json",):
             rec = self.record(); rec["evidence_refs"]["restored_observation"] = ref
             self.assertEqual(self.evaluate(rec)["status"], "not_met")
+        absolute_inside = self.root / "evidence/observation.json"
+        rec = self.record(); rec["evidence_refs"]["restored_observation"] = str(absolute_inside)
+        result = self.evaluate(rec)
+        self.assertEqual(result["status"], "not_met")
+        self.assertIn("evidence path is invalid", result["first_failing_check"])
         outside = self.root.parent / "outside-evidence.json"; outside.write_text('{"status":"restored","date":"2026-11-07"}')
         link = self.root / "evidence/escape.json"; link.symlink_to(outside)
         rec = self.record(); rec["evidence_refs"]["restored_observation"] = "evidence/escape.json"
@@ -203,8 +213,12 @@ class OperatorSelfUseTests(unittest.TestCase):
         rec = self.record()
         (self.root / "docs/plans/2026-11-08-vuoro-cloud-record-family-cutover.md").write_text(self.plan.replace("[]", '["row"]'))
         self.assertEqual(self.evaluate(rec)["first_failing_check"], "B2 cutover plan has open in-scope rows")
+        result = self.evaluate(rec)
+        self.assertNotIn("B2", result["label"])
+        self.assertIn("B2", result["first_failing_check"])
         rec = self.record(); out = estate.evaluate_operator_self_use(rec, desired_release_ready={"status": "unknown", "value": None}, today=datetime.date(2026, 11, 8), pinned_pair=PAIR)
         self.assertIn("release_ready=unknown", out["label"])
+        self.assertIn("NOT release_ready", out["label"])
         # Editing the reviewed empty marker without refreshing its bound digest
         # cannot create a met result.
         rec = self.record()
