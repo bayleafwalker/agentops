@@ -78,7 +78,9 @@ worker's terminal exit code.
 After a failed terminal write, the primary status file stays `running`; the
 fallback file carries the terminal result. If writing the final transcript to a
 closed stdout pipe fails after status commit, the wrapper preserves the
-committed worker exit code and status record.
+committed worker exit code and status record. If that write failure changes a
+zero-exit escalated result to `failed` (exit 1), the fallback record clears
+`escalation_reason`, since failed records do not represent an escalation.
 
 Optional follow-up: a separate watcher may register Vuoro run records and
 report outcomes via `register_run` / `report_outcome`; this wrapper intentionally

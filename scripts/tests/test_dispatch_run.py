@@ -664,26 +664,54 @@ def test_escalated_nonzero_worker_with_terminal_write_failure_preserves_exit_cod
     assert fallback["escalation_reason"] == "blocked"
 
 
-def test_closed_stdout_pipe_does_not_change_committed_exit_code(tmp_path):
+@pytest.mark.parametrize("outcome,worker_code,final,committed_code", [
+    ("done", "0", "answer", 0),
+    ("failed", "7", "answer", 7),
+    ("escalated", "0", "DISPATCH_OUTCOME: ESCALATED\nESCALATION_REASON: blocked", 0),
+])
+def test_closed_stdout_pipe_preserves_committed_result(tmp_path, outcome, worker_code, final, committed_code):
     tree, fakebin = setup(tmp_path)
-    status = tmp_path / "closed-pipe.json"
+    status = tmp_path / f"closed-pipe-{outcome}.json"
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", FAKE_FINAL=final, FAKE_OUTPUT="transcript",
+               FAKE_ERR="", FAKE_EXIT=worker_code, ARGV_FILE=str(tmp_path / "argv"))
+    read_fd, write_fd = os.pipe()
+    os.close(read_fd)
+    try:
+        result = subprocess.run([sys.executable, str(SCRIPT), "--worker", "codex", "--model", "m",
+                                 "--worktree", str(tree), "--status-file", str(status), "prompt"],
+                                env=env, stdout=write_fd, stderr=subprocess.PIPE, pass_fds=(write_fd,))
+    finally:
+        os.close(write_fd)
+    stderr = result.stderr.decode(errors="replace")
+    assert result.returncode == committed_code
+    assert "Exception ignored" not in stderr and "BrokenPipeError" not in stderr
+    record = json.loads(status.read_text())
+    assert record["outcome"] == outcome
+    assert record["exit_code"] == int(worker_code)
+    assert (record["escalation_reason"] == "blocked") == (outcome == "escalated")
+
+
+def test_failed_terminal_fallback_drops_escalation_reason(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    status = tmp_path / "escalated-zero-failure.json"
     code = textwrap.dedent(f"""
-        import builtins, importlib.util
+        import importlib.util
         spec = importlib.util.spec_from_file_location('dispatch_run', {str(SCRIPT)!r})
         m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-        real_print = builtins.print
-        def closed_pipe(*args, **kwargs):
-            if kwargs.get('file') is None and args: raise BrokenPipeError()
-            return real_print(*args, **kwargs)
-        builtins.print = closed_pipe
+        real = m.write_record
+        def failing(path, record):
+            if str(path) == {str(status)!r} and record['outcome'] != 'running': raise OSError('disk full')
+            return real(path, record)
+        m.write_record = failing
         raise SystemExit(m.main(['--worker', 'codex', '--model', 'm', '--worktree', {str(tree)!r},
                                 '--status-file', {str(status)!r}, 'prompt']))
     """)
-    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", FAKE_FINAL="answer", FAKE_OUTPUT="transcript",
-               FAKE_ERR="", FAKE_EXIT="0", ARGV_FILE=str(tmp_path / "argv"))
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", FAKE_FINAL="DISPATCH_OUTCOME: ESCALATED\nESCALATION_REASON: blocked",
+               FAKE_OUTPUT="", FAKE_ERR="", FAKE_EXIT="0", ARGV_FILE=str(tmp_path / "argv"))
     result = subprocess.run([sys.executable, "-c", code], env=env, text=True, capture_output=True)
-    assert result.returncode == 0
-    assert json.loads(status.read_text())["outcome"] == "done"
+    fallback = json.loads(Path(str(status) + ".fallback.json").read_text())
+    assert result.returncode == fallback["exit_code"] == 1
+    assert fallback["outcome"] == "failed" and fallback["escalation_reason"] is None
 
 
 def test_terminal_write_failure_during_signal_keeps_signal_code_and_fallback(tmp_path):
