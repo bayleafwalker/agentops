@@ -467,9 +467,14 @@ failover. The state machine is part of the architecture now; its
 implementation (epoch tagging, import, conflict surfacing) may come later
 (§7).
 
-**Transition (until Q1(b) lands).** Today local sprintctl, kctl and auditctl
-writes go to `vuoro-shared` (and auditctl shards), while hosted and
-interactive runs write to vuoro.cloud. That is not the NORMAL state above and
+**Transition (until Q1(b) lands).** Today local sprintctl and auditctl writes
+go to `vuoro-shared` (and auditctl shards), while hosted and interactive runs
+write to vuoro.cloud. kctl is different: its records live in per-repo local
+SQLite stores (`<repo>/.kctl/kctl.db`; verified 2026-11-09 under four
+workstation repositories) and are not written to `vuoro-shared`. This text
+previously listed kctl with the `vuoro-shared` writers, which did not match
+the stores on disk; whether kctl is in scope for the cutover (#2536) remains an
+open owner question (TS-13/S4 is only `proposed`). That is not the NORMAL state above and
 not an outage epoch; it is the pre-cutover arrangement. The rule during it:
 each record family has exactly one named authoritative store and is never
 written to both. Local work changes: `vuoro-shared` (or local SQLite). Local
