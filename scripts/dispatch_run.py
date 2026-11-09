@@ -338,7 +338,8 @@ def main(argv: list[str] | None = None) -> int:
             print(safe_tail(transcript), end="\n" if transcript else "")
             # Text streams may buffer the write and raise only while flushing
             # during interpreter shutdown, after this try block has returned.
-            sys.stdout.flush()
+            if sys.stdout is not None:  # fd 1 closed at start: nothing to flush
+                sys.stdout.flush()
         except BrokenPipeError:
             # The worker result is already committed; a consumer closing the
             # presentation pipe must not turn a successful run into exit 120.

@@ -691,6 +691,21 @@ def test_closed_stdout_pipe_preserves_committed_result(tmp_path, outcome, worker
     assert (record["escalation_reason"] == "blocked") == (outcome == "escalated")
 
 
+@pytest.mark.parametrize("worker_code,committed_code", [("0", 0), ("3", 3)])
+def test_closed_stdout_descriptor_preserves_committed_exit_code(tmp_path, worker_code, committed_code):
+    tree, fakebin = setup(tmp_path)
+    status = tmp_path / f"fd1-closed-{worker_code}.json"
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", FAKE_FINAL="answer", FAKE_OUTPUT="transcript",
+               FAKE_ERR="", FAKE_EXIT=worker_code, ARGV_FILE=str(tmp_path / "argv"))
+    cmd = ('exec "$0" "$@" >&-')
+    result = subprocess.run(["sh", "-c", cmd, sys.executable, str(SCRIPT), "--worker", "codex", "--model", "m",
+                             "--worktree", str(tree), "--status-file", str(status), "prompt"],
+                            env=env, stderr=subprocess.PIPE)
+    assert result.returncode == committed_code, result.stderr.decode(errors="replace")
+    assert "unexpected error" not in result.stderr.decode(errors="replace")
+    assert json.loads(status.read_text())["exit_code"] == int(worker_code)
+
+
 def test_failed_terminal_fallback_drops_escalation_reason(tmp_path):
     tree, fakebin = setup(tmp_path)
     status = tmp_path / "escalated-zero-failure.json"
