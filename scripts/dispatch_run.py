@@ -211,7 +211,7 @@ def main(argv: list[str] | None = None) -> int:
                 record.update(outcome="failed" if code == 0 else outcome,
                               exit_code=code or 1,
                               final_message_tail=safe_tail(f"terminal status write failed: {type(exc).__name__}: {exc}"),
-                              escalation_reason=None, ended_at=now())
+                              escalation_reason=(record.get("escalation_reason") if outcome == "escalated" else None), ended_at=now())
                 try:
                     fallback = status_path.with_name(status_path.name + ".fallback.json")
                     write_record(fallback, record)
@@ -334,7 +334,15 @@ def main(argv: list[str] | None = None) -> int:
         else:
             finish("failed", code, final)
             result_code = code
-        print(safe_tail(transcript), end="\n" if transcript else "")
+        try:
+            print(safe_tail(transcript), end="\n" if transcript else "")
+        except BrokenPipeError:
+            # The worker result is already committed; a consumer closing the
+            # presentation pipe must not turn a successful run into exit 120.
+            try:
+                sys.stdout = open(os.devnull, "w")
+            except OSError:
+                pass
         if not terminal_write_failed:
             print(f"agentops dispatch run: {record['outcome']}; status: {status_path}", file=sys.stderr)
         if terminal_write_failed:

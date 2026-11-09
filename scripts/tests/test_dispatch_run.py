@@ -661,6 +661,29 @@ def test_escalated_nonzero_worker_with_terminal_write_failure_preserves_exit_cod
     fallback = json.loads(Path(str(status) + ".fallback.json").read_text())
     assert result.returncode == fallback["exit_code"] == 7
     assert fallback["outcome"] == "escalated" and fallback["exit_code"] == 7
+    assert fallback["escalation_reason"] == "blocked"
+
+
+def test_closed_stdout_pipe_does_not_change_committed_exit_code(tmp_path):
+    tree, fakebin = setup(tmp_path)
+    status = tmp_path / "closed-pipe.json"
+    code = textwrap.dedent(f"""
+        import builtins, importlib.util
+        spec = importlib.util.spec_from_file_location('dispatch_run', {str(SCRIPT)!r})
+        m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+        real_print = builtins.print
+        def closed_pipe(*args, **kwargs):
+            if kwargs.get('file') is None and args: raise BrokenPipeError()
+            return real_print(*args, **kwargs)
+        builtins.print = closed_pipe
+        raise SystemExit(m.main(['--worker', 'codex', '--model', 'm', '--worktree', {str(tree)!r},
+                                '--status-file', {str(status)!r}, 'prompt']))
+    """)
+    env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", FAKE_FINAL="answer", FAKE_OUTPUT="transcript",
+               FAKE_ERR="", FAKE_EXIT="0", ARGV_FILE=str(tmp_path / "argv"))
+    result = subprocess.run([sys.executable, "-c", code], env=env, text=True, capture_output=True)
+    assert result.returncode == 0
+    assert json.loads(status.read_text())["outcome"] == "done"
 
 
 def test_terminal_write_failure_during_signal_keeps_signal_code_and_fallback(tmp_path):
