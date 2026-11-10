@@ -1,0 +1,68 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "lanectl-coordination-020",
+  "closed_on": "2026-11-10",
+  "outcome": "Owner-coordinated native execution and atomic served lane events, with optional immutable service composition.",
+  "work_refs": [],
+  "prs": [
+    "https://github.com/bayleafwalker/lanectl/releases/tag/v0.2.0",
+    "https://github.com/bayleafwalker/vuoro/pull/321"
+  ],
+  "acceptance": {
+    "state": "accepted",
+    "criteria": [
+      "Replay, scope, lease-loss, owner-confirmed closure and atomic stream conflict tests passed.",
+      "Actual Vuoro ASGI operation/schema/authorization verifier passed; history import preserves exact event order.",
+      "Optional service composition merged as Vuoro PR321 at f867f37 with all 13 final-head CI checks green; an actual local Python3.13 image build passed.",
+      "Hosted enrollment, durable-volume qualification and production cutover were not performed."
+    ]
+  },
+  "route": {
+    "complexity_decision": "Coordinator judgement: cross-owner authority, replay and isolation uncertainty required first-party sessions; bounded outcomes owned discovery, implementation and repair.",
+    "selected": {
+      "role": "default subagent",
+      "harness": "codex",
+      "model": "unknown"
+    },
+    "observed": {
+      "role": "default subagent",
+      "harness": "codex",
+      "model": "unknown",
+      "evidence": "Native collaboration tasks delivery, specification and coordination used inherited model settings; no explicit cheaper model binding was recorded."
+    },
+    "suboutcomes": []
+  },
+  "coordinator_effort": {
+    "minutes": null,
+    "basis": "unknown"
+  },
+  "elapsed": {
+    "minutes": null,
+    "basis": "unknown"
+  },
+  "review": {
+    "reviewer": {
+      "role": "coordinator and peer subagent",
+      "harness": "codex",
+      "model": "unknown"
+    },
+    "independent": true,
+    "same_tier_as_worker": true,
+    "findings": {
+      "blocker": 0,
+      "major": 3,
+      "minor": 0
+    }
+  },
+  "repairs": {
+    "count": 3,
+    "by": "mixed",
+    "note": "Lower bound of distinct reviewed repair areas, not an exhaustive defect tally. No comparative model-quality claim."
+  },
+  "cost": {
+    "usd": null,
+    "tokens": null,
+    "basis": "unknown"
+  },
+  "practice_observation": "Outcome delegation and independent interface/failure-case review found source-bound landing, owner-settlement, pool-alias accounting, cancellation and packaging gaps. Keep adverse integration proofs. Explicit cheaper-tier selection was not demonstrated by this run; coordinator effort, total elapsed and cost were not instrumented and remain unknown."
+}

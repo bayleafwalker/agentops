@@ -1,0 +1,66 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "lanectl-delivery-020",
+  "closed_on": "2026-11-10",
+  "outcome": "Native landing, PR reconciliation, unattended integration and conservative abandoned-runner recovery.",
+  "work_refs": [],
+  "prs": [
+    "https://github.com/bayleafwalker/lanectl/releases/tag/v0.2.0"
+  ],
+  "acceptance": {
+    "state": "accepted",
+    "criteria": [
+      "750 integrated tests passed at lanectl c2ea3ed; this aggregate is recorded here once.",
+      "Release v0.2.0 wheel cold-installed, published bytes verified and workstation installed tag/commit verified.",
+      "Owner settlement remains distinct from gate acceptance; default authority policy remains unchanged."
+    ]
+  },
+  "route": {
+    "complexity_decision": "Coordinator judgement: cross-owner authority, replay and isolation uncertainty required first-party sessions; bounded outcomes owned discovery, implementation and repair.",
+    "selected": {
+      "role": "default subagent",
+      "harness": "codex",
+      "model": "unknown"
+    },
+    "observed": {
+      "role": "default subagent",
+      "harness": "codex",
+      "model": "unknown",
+      "evidence": "Native collaboration tasks delivery, specification and coordination used inherited model settings; no explicit cheaper model binding was recorded."
+    },
+    "suboutcomes": []
+  },
+  "coordinator_effort": {
+    "minutes": null,
+    "basis": "unknown"
+  },
+  "elapsed": {
+    "minutes": null,
+    "basis": "unknown"
+  },
+  "review": {
+    "reviewer": {
+      "role": "coordinator and peer subagent",
+      "harness": "codex",
+      "model": "unknown"
+    },
+    "independent": true,
+    "same_tier_as_worker": true,
+    "findings": {
+      "blocker": 0,
+      "major": 4,
+      "minor": 0
+    }
+  },
+  "repairs": {
+    "count": 4,
+    "by": "mixed",
+    "note": "Lower bound of distinct reviewed repair areas, not an exhaustive defect tally. No comparative model-quality claim."
+  },
+  "cost": {
+    "usd": null,
+    "tokens": null,
+    "basis": "unknown"
+  },
+  "practice_observation": "Outcome delegation and independent interface/failure-case review found source-bound landing, owner-settlement, pool-alias accounting, cancellation and packaging gaps. Keep adverse integration proofs. Explicit cheaper-tier selection was not demonstrated by this run; coordinator effort, total elapsed and cost were not instrumented and remain unknown."
+}
