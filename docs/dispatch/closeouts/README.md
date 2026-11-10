@@ -20,3 +20,6 @@ against the schema.
 | Record | Outcome |
 |---|---|
 | [2026-11-04-outcome-routing-pr485.json](2026-11-04-outcome-routing-pr485.json) | routing practice guidance (backfilled; effort and elapsed unknown) |
+| [2026-11-10-lanectl-delivery-020.json](2026-11-10-lanectl-delivery-020.json) | Native landing, PR reconciliation, unattended integration and conservative abandoned-runner recovery. |
+| [2026-11-10-lanectl-specification-020.json](2026-11-10-lanectl-specification-020.json) | Independent intent drafting, adversarial review, recurring maintenance intake and isolated local native provider. |
+| [2026-11-10-lanectl-coordination-020.json](2026-11-10-lanectl-coordination-020.json) | Owner-coordinated native execution and atomic served lane events, with optional immutable service composition. |
