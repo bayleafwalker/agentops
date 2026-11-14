@@ -326,3 +326,58 @@ Revisit only after measured loss/cost or a newly verified native capability.
 The entire programme can be smaller than this list if owner baselines already
 meet the same outcomes. Retire experiments with no demonstrated consumers,
 even when the demo is charming.
+
+## 2026-11-14 refinement: basis-tracked revalidation
+
+The next bounded AE-11 study is the
+[HLA qualification packet](https://github.com/bayleafwalker/homelab-analytics/blob/main/docs/plans/2026-11-14-basis-tracked-revalidation.md).
+It tests source and assessment-method changes on the existing deterministic
+`electricity_contract_keep_or_switch` path. HLA owns the fixture, comparison and
+economics report; this plan does not duplicate its case corpus or backlog.
+
+**Basis matching, evidence applicability and current work acceptance are separate
+judgments.** Exact revision references belong on existing owner records. Historical
+acceptance remains intact; applicability to a later requirement or method is a
+new derived judgment. Generation context, continuation obligations and explanation
+may project from those references without acquiring a universal graph schema or
+another lifecycle owner.
+
+Only a complete, conservative dependency declaration or qualified complete
+observation for a named check/use can justify omission of revalidation. Matching
+values alone do not cover changed membership, negative reads, method, criteria,
+environment or freshness. Ordinary traces and inferred relationships widen the
+candidate set; unknown coverage cannot justify skipping. Required cheap checks
+continue to run.
+
+HLA runs isolated full recomputation for every frozen case, with independent
+expected effects, held-out variants and deliberately broken candidates. The
+result qualifies only that scope. Record selection and basis-maintenance costs,
+all attempts and the shadow reference cost; this deterministic path establishes
+no model-spend saving. If reuse does not earn its cost, retain truthful lineage
+and full recomputation. Do not widen into costly model workloads to rescue the
+optimization's economics.
+
+| Planning key / proposed scope | Native priority | Dependencies | Acceptance |
+|---|---|---|---|
+| AO-BR1 — Bind qualified HLA findings to existing owner workflows | 3 | HLA-BR03 correctness/economics disposition; reconcile AE-11; Vuoro VU-BR1 and Sprintctl SC-BR1 before any shared completion integration | Record continue/narrow/stop, link the measured HLA result and exact qualified owner contracts, and update AE-11/conditional AE-03 guidance without introducing a graph, queue, acceptance writer or human gate. |
+
+This is a proposed backlog refinement, not a live work item or permission to
+enable production skipping. Reconcile existing AE-11/AE-03 work first and register
+only missing scope. **`work_binding: unknown`**: the served connector returned
+`workspace-ambiguous` on 2026-11-14 and no scoped CLI credential was available.
+Preserve existing work references; do not infer status or hand-edit snapshots.
+
+Shared follow-through belongs in the
+[Vuoro owner addendum](https://github.com/bayleafwalker/vuoro/blob/main/docs/plans/2026-10-30-agent-substrate-integration.md#proposed-basis-tracked-revalidation-follow-through-14-november-2026)
+and [Sprintctl owner addendum](https://github.com/bayleafwalker/sprintctl/blob/main/docs/plans/2026-10-25-evidence-guided-completion.md#proposed-basis-applicability-follow-through-14-november-2026).
+HLA correctness and explicit owner-contract qualification gate their semantics;
+measured net benefit separately gates selective execution. Existing authorized
+services/policies remain the acceptance authorities. An unavailable classifier
+cannot strand work whose required checks passed, and a confident classifier
+cannot replace a missing check. An unresolved question is a valid result.
+
+Executable alternatives remain conditional: construct a discriminating experiment
+only when its cost is below the expected reduction in wrong-decision loss. This
+refinement adds no multi-role demo or self-evolution programme; existing promotion
+rules still prohibit changing process, acceptance criteria and evaluation
+population in one promotion.
