@@ -1,11 +1,13 @@
 ---
 name: dispatch-plan
-description: Use when a request needs architecture decisions, scope shaping, cross-repo sequencing, or a batch/wave execution design before implementation. Produces a decision-complete brief or immutable-wave source without repo mutations.
+description: Resolve consequential product, interface or authority ambiguities and cross-repo sequencing before implementation. Produce an outcome-oriented brief or immutable-wave source while leaving ordinary implementation design with its owner.
 ---
 
 ## Goal
 
-Produce an implementation brief that is complete enough for a build worker to execute without making new product, architecture, or routing decisions.
+Establish the intended outcome, acceptance evidence and real product, interface
+and authority constraints. Give the implementation owner enough context to choose
+the design and execution approach without repeating discovery at the coordinator.
 
 ## Inputs
 
@@ -25,19 +27,23 @@ Produce an implementation brief that is complete enough for a build worker to ex
    acceptance histories are frozen and multiple coherent units can amortize
    context, preparation, review, and broad verification.
 7. In wave mode, classify entries as independent, stacked, or wave-integrated;
-   set bounded parallelism; declare worker-focused, candidate-focused, and
+   derive parallelism from dependencies, ownership and actual capacity; declare worker-focused, candidate-focused, and
    integration/repository-full verification; and identify the owner-issued
    terminal resource reference and required attachments.
-8. Produce a brief with goal, allowed scope, out-of-scope, expected file areas,
-   adversarial acceptance checks, verification stages, audit/review
-   expectations, context-churn limits, and unresolved questions.
+8. Produce a compact brief with goal, allowed scope, out-of-scope, relevant
+   contracts, independent acceptance responsibilities, cheap setup/focused-check/dev
+   entrypoints, verification stages, review expectations and unresolved questions.
+   Distinguish required constraints from suggestions. Resolve only consequential
+   ambiguities; leave ordinary implementation decisions to the owner. Do not make
+   a detailed design or line/attempt estimate a default prerequisite to starting.
 9. Stop before implementation. If new sprint/action scope is needed, hand off
    to the repo's sprint or action creation workflow. Route an approved wave to
    `dispatch-wave`.
 
 ## Output Contract
 
-- A concise, decision-complete implementation brief.
+- A concise outcome-oriented brief, with consequential decisions separated from
+  implementation suggestions and owner-delegated choices.
 - Explicit scope boundaries and verification commands.
 - No repo edits.
 - Open questions separated from decisions.

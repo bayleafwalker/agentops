@@ -24,6 +24,32 @@ plan or separate benchmark project is required to start using this practice.
   time in normal closeouts. Label estimates and unknowns; avoid duplicate reporting.
   Keep guidance aligned with observed results and mark retired patterns with reasons.
 
+## Workflow learning amendment (operator direction, 2026-11-15)
+
+- Requirements and independently maintained acceptance criteria define the outcome;
+  implementers own implementation design, decomposition and repair. Resolve real
+  product/interface/authority ambiguities; do not default to a more prescriptive spec.
+- Do not use line counts or fixed attempt counts as default delivery-quality gates.
+  Review brevity and simplification together with correctness and maintainability,
+  with concrete findings rather than nits or code compression. Resource deadlines,
+  effect boundaries and evidence of progress remain meaningful controls.
+- Acceptance authors/reviewers own adversarial scenarios and oracle checks outside
+  the implementer's allowance. Strengthen them when evidence reveals a gap; preserve
+  criterion revisions, original failures and source bindings. Never weaken the
+  outcome to pass, rewrite history, or silently reset an experiment.
+- Every project should provide a cheap reproducible setup, focused checks and a
+  representative development smoke path that any authorized agent can run. Verify
+  the exact entrypoints and prerequisites early; fail promptly with actionable
+  environment errors. Use expensive checks when they add evidence for the change.
+- Scale concurrent work by dependencies, ownership and actual capacity. Keep the
+  coordinator's context small through outcome references, compact checkpoints and
+  worker/reviewer ownership; do not impose an arbitrary work-in-progress cap to
+  compensate for poor context management.
+- Assess, repair, record the chosen strategy and reassess it on subsequent real
+  outcomes. Use [workflow-improvement](../../skills/workflow-improvement/SKILL.md)
+  for recurring workflow problems. The [strategy record](../../docs/dispatch/assessments/2026-11-15-workflow-feedback.md)
+  distinguishes implemented guidance from pending runtime and project rollout.
+
 Details: `/projects/dev/agentops/docs/dispatch/model-routing.md`, section
 "Active dogfood practice (2026-11-04)". This instruction does not expand a session's
 tool permissions or grant delegation when its runtime instructions prohibit it.
