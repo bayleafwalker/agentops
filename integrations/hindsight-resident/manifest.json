@@ -1,0 +1,13 @@
+{
+  "schema": "resident-hindsight-source/v1",
+  "upstream": "https://github.com/vectorize-io/hindsight.git",
+  "version": "1.2.1",
+  "base_commit": "0eb02d8c418eac6b489bc63883c993b2257dfac4",
+  "downstream_commit": "64cf764da91ab10448624c1562a96477ced88824",
+  "result_tree": "99557099d32b20d66ad47c7c2be81edc80034e8c",
+  "patch_sha256": "14182f06547d92b25fb1c34943582e96151c83a3526e92ab7e30b6c40b7daf0a",
+  "adapter_version": "0.8.7",
+  "remote_fork_created": false,
+  "image_built": false,
+  "host_qualified": false
+}

@@ -1,0 +1,3 @@
+# A unified diff represents an empty context line with one literal space.
+# The reconstructed downstream source is independently checked with git diff --check.
+downstream.patch whitespace=-blank-at-eol

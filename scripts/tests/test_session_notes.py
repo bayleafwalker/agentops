@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import copy
 import importlib.util
 import io
@@ -9,6 +10,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 SCRIPT = Path(__file__).resolve().parents[1] / "session_notes.py"
 SPEC = importlib.util.spec_from_file_location("session_notes", SCRIPT)
@@ -82,6 +84,55 @@ class AppendAndLoadTests(unittest.TestCase):
     def test_load_notes_empty_root_returns_empty_list(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             self.assertEqual(NOTES.load_notes(Path(tmp)), [])
+
+    def test_exact_retry_preserves_existing_inode_and_bytes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            note = NOTES.new_note(repo="agentops", kind="handover", body="continue here")
+            path = NOTES.append(Path(tmp), note)
+            inode, before = path.stat().st_ino, path.read_bytes()
+            self.assertEqual(NOTES.append(Path(tmp), copy.deepcopy(note)), path)
+            self.assertEqual(path.stat().st_ino, inode)
+            self.assertEqual(path.read_bytes(), before)
+
+    def test_changed_payload_cannot_reuse_an_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            note = NOTES.new_note(repo="agentops", kind="handover", body="original")
+            path = NOTES.append(Path(tmp), note)
+            note["body"] = "replacement"
+            with self.assertRaisesRegex(ValueError, "different content"):
+                NOTES.append(Path(tmp), note)
+            self.assertEqual(json.loads(path.read_text())["body"], "original")
+
+    def test_concurrent_identical_appends_publish_one_complete_note(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            note = NOTES.new_note(repo="agentops", kind="handover", body="concurrent")
+            with ThreadPoolExecutor(max_workers=8) as workers:
+                paths = list(workers.map(lambda _: NOTES.append(root, note), range(16)))
+            self.assertEqual(len(set(paths)), 1)
+            self.assertEqual(NOTES.load_notes(root), [note])
+
+    def test_failed_staging_does_not_publish_partial_note(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            note = NOTES.new_note(repo="agentops", kind="handover", body="must be atomic")
+            with patch.object(NOTES.os, "fsync", side_effect=OSError("injected disk failure")):
+                with self.assertRaises(OSError):
+                    NOTES.append(root, note)
+            self.assertEqual(NOTES.load_notes(root), [])
+            self.assertEqual(list((root / "session-notes").iterdir()), [])
+
+    def test_retry_cannot_follow_an_existing_symlink(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            note = NOTES.new_note(repo="agentops", kind="handover", body="safe")
+            target = root / "unrelated"
+            target.write_text("do not replace")
+            (root / "session-notes").mkdir()
+            (root / "session-notes" / f"{note['note_id']}.json").symlink_to(target)
+            with self.assertRaises(OSError):
+                NOTES.append(root, note)
+            self.assertEqual(target.read_text(), "do not replace")
 
 
 class ResolveLatestTests(unittest.TestCase):
