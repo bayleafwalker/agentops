@@ -12,12 +12,17 @@ provides a model credential or changes a host configuration by being merged.
 | AgentOps | `hooks/session-note-start.sh`, `hooks/session-note-stop.sh` | Opt-in semantic handover notes; existing structured handoff is unchanged |
 | AgentOps | `scripts/resident_evolution.py` | Receipt-bound candidate pointer metadata; no OS activation |
 | lanectl | `lanectl resident` | Qualified bounded episodes, duplicate wake handling, process cleanup and recovery fencing |
+| lanectl | `resident_native`, `resident_gateway`, `resident_systemd` and NixOS module | Concrete native Go/local routes, separate credential service and isolated executor composition |
 | Hindsight downstream | `hindsight-extensions/resident/` | Tenant identity, exact bank grants, strict tag scopes and separate internal maintenance grants |
 | Hindsight downstream | coding-agent `managedContext` | Only facade `memory_search`; no independent injection, retention or raw engine tools |
 
 The memory SQLite database is an integration receipt/source store. It is not a
 replacement task tracker or canonical knowledge service. Exact selected learned
 text is retained because rerunning inference does not reproduce prior memory.
+
+Use [resident execution paths](resident-execution-paths.md) for the devbox and
+isolated-workstation profiles, on-demand local generation and pinned CPU
+embedding deployment. Source availability does not establish host activation.
 
 ## Protected policy
 

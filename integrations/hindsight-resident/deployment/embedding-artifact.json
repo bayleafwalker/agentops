@@ -1,0 +1,31 @@
+{
+  "purpose": "Pinned build input; not an activation or deployed-artifact receipt",
+  "repository": "BAAI/bge-small-en-v1.5",
+  "revision": "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
+  "license": "MIT",
+  "provider": "local",
+  "device": "cpu",
+  "dimensions": 384,
+  "maximum_sequence_tokens": 512,
+  "trust_remote_code": false,
+  "runtime_path": "/opt/resident-models/bge-small-en-v1.5/5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
+  "files": [
+    "README.md",
+    "1_Pooling/config.json",
+    "config.json",
+    "config_sentence_transformers.json",
+    "model.safetensors",
+    "modules.json",
+    "sentence_bert_config.json",
+    "special_tokens_map.json",
+    "tokenizer.json",
+    "tokenizer_config.json",
+    "vocab.txt"
+  ],
+  "known_sha256": {
+    "model.safetensors": "3c9f31665447c8911517620762200d2245a2518d6e7208acc78cd9db317e21ad"
+  },
+  "source_revision_url": "https://huggingface.co/BAAI/bge-small-en-v1.5/commit/5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
+  "source_weight_url": "https://huggingface.co/BAAI/bge-small-en-v1.5/blob/5c38ec7c405ec4b44b94cc5a9bb96e735b38267a/model.safetensors",
+  "source_model_card_url": "https://huggingface.co/BAAI/bge-small-en-v1.5/blob/5c38ec7c405ec4b44b94cc5a9bb96e735b38267a/README.md"
+}

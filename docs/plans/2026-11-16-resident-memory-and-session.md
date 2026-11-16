@@ -47,11 +47,33 @@ one agent-owned workspace do not establish this boundary.
 The initial profile is disabled. Activation requires observed credential
 isolation, egress restrictions, aggregate resource/budget admission, live source
 rechecking, and recovery on the actual host. Provider calls from every Hindsight
-LLM and embedding operation must pass the approved gateway. Per-process
+LLM and remote embedding operation must pass the approved gateway. Local CPU
+embeddings instead use a pinned offline artifact under host resource limits. Per-process
 concurrency and post-call accounting are not hard aggregate budget enforcement.
 
 External effects remain unavailable. Local authored artifacts may be produced;
 shared publication and infrastructure changes must use their existing owners.
+
+## Execution path implementation, 2026-11-16
+
+The operator selected devbox with native OpenCode/DeepSeek V4.1 Flash, or the
+on-demand workstation RTX 3090, explicitly isolated from the regular user.
+lanectl now supplies the native launcher, fixed model gateway and opt-in NixOS
+service composition for both executor placements. The exact routes are
+`opencode-go/deepseek-v4.1-flash` and `local/worker-fast`; neither falls back to
+the other. Local usage has no aggregate request allowance by default.
+
+The workstation resident uses a separate UID, private network namespace and
+private runtime filesystem, consuming only a scoped model socket capability.
+The credential gateway uses another UID. The existing GPU service retains
+model/device ownership. Root-owned admission and explicit cgroup cleanup stay
+outside the writable workspace. No target service or self-triggering timer has
+been installed from this development environment.
+
+Memory deployment now includes pinned offline CPU embeddings and an explicit
+local-generation profile; exact source/context remains independent of GPU
+availability. See [execution paths](../runbooks/resident-execution-paths.md) for
+the actual boundaries, supported choices, commissioning and rollback.
 
 ## Qualification and next increments
 
