@@ -175,6 +175,7 @@
               "sprint-close",
               "domain-impact-scan",
               "workflow-artifact-capture",
+              "workflow-improvement",
               "verify-state-protocols",
               "reconcile-project-contracts",
               "golden-child",

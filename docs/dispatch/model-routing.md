@@ -247,6 +247,23 @@ duplicate bookkeeping and utilization targets that manufacture work. Adjust the
 practice as results arrive; retain useful patterns in guidance and mark failed
 ones retired with their evidence. Do not revive the retired hybrid driver.
 
+### Workflow feedback amendment (2026-11-15)
+
+The operator refined this practice after observed delivery friction: preserve
+implementation freedom, maintain acceptance/scenario quality independently,
+provide cheap representative environments and reduce coordinator context through
+ownership and references. Do not substitute line/retry caps, prescriptive specs
+or an arbitrary concurrency restriction for these improvements. Review brevity
+and simplification as part of the substantive correctness/architecture pass.
+
+The [working guideline](workflow-improvement.md) and
+[revisitable strategy record](assessments/2026-11-15-workflow-feedback.md)
+record the chosen actions, evidence, limits and future review triggers. Use the
+[workflow-improvement skill](../../skills/workflow-improvement/SKILL.md) to assess,
+implement, document and later revise or retire remedies during ordinary delivery.
+Guidance adoption does not establish runtime-policy rollout or efficacy; preserve
+historical experiments and report enforced-policy gaps explicitly.
+
 ### Decision feedback planning amendment (2026-11-09)
 
 Status: accepted operator planning direction; implementation interfaces are
