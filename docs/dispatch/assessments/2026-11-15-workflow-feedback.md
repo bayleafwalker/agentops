@@ -1,8 +1,8 @@
 # Delivery workflow: assessment and remediation
 
 Status: operator-directed strategy adopted; shared guidance implemented;
-runtime-policy and project-environment rollout remain pending. Effectiveness has
-not yet been measured. This record is intended for subsequent reassessment.
+lanectl runtime policy is released and installed as 0.2.16; project-environment
+rollout remains in progress. Delivery effectiveness has not yet been measured. This record is intended for subsequent reassessment.
 
 ## Evidence and assessment
 
@@ -24,8 +24,8 @@ Public examples motivating the changes:
   repair. An exact consumer/environment smoke could expose this earlier. See
   lanectl `docs/evidence/2026-11-15-stream-recovery/ci-preflight.json` and
   `dash-portability.json`.
-- Hard line/attempt limits currently shape lanectl implementation eligibility and
-  rejection. Their contribution to defects or elapsed time has not been isolated.
+- At the November 15 assessment, hard line/attempt limits shaped lanectl
+  implementation eligibility and rejection. Their contribution to defects or elapsed time has not been isolated.
   They should not be treated as demonstrated measures of simplicity or quality.
 - Coordinator preparation/context cost and total time saved by alternative
   approaches are not separately measured. No comparative productivity claim is
@@ -44,7 +44,7 @@ helps, or that expensive verification lacks value.
 | Assess brevity and simplification in the substantive review pass | Shared review guidance | Implemented as guidance, not a new review ceremony | Concrete unnecessary mechanisms/state removed without code compression or cosmetic churn |
 | Make cheap setup/focused/dev-smoke paths normal for every project | Shared verification and environment guidance | Expectation implemented; actual per-project entrypoints, timings and broken-prerequisite controls are not yet audited or rolled out | Agents run the same documented entrypoints; prerequisite failures surface before expensive work |
 | Reduce coordinator context while retaining useful concurrency | Shared routing and planning guidance | Implemented as guidance; no arbitrary active-task cap introduced | Less transcript replay/context reconstruction; implementers/reviewers own detailed work |
-| Replace default delivery LOC/attempt quality gates with review/progress judgment | lanectl runtime/governance owner | Pending explicit prospective implementation and validation; live caps remain enforced | New delivery behavior follows accepted policy without silently resetting old experiments or losing failure history |
+| Replace default delivery LOC/attempt quality gates with review/progress judgment | lanectl runtime/governance owner | Released and installed in lanectl 0.2.16; new implement publications bind review-progress, while historical claims retain their exact policy | New delivery behavior follows accepted policy without silently resetting old experiments or losing failure history |
 | Reassess and repair the strategy itself | workflow-improvement skill and this record | Implemented documentation loop; no efficacy claim or automation | Next relevant closeout records keep/revise/retire decision backed by observed outcomes |
 | Reconcile consuming skill copies and conflicting local review rules | Each repository's workflow owner | Pending normal synchronization/review; HLA's local size specialist still has numeric threshold guidance | Concrete simplification findings replace automatic size-only blockers; old findings remain historically attributed |
 
@@ -81,11 +81,11 @@ coordinator intervention/context burden and remaining unknowns. Decide whether
 each chosen remedy should be kept, revised or retired, then implement the needed
 correction. Link to served work state rather than creating another task history.
 
-Before advertising the lanectl policy change as deployed, implement and validate
-the runtime transition separately: optional diagnostic size/attempt accounting,
-review/progress-based continuation, preserved historical experiment policies and
-failures, and unchanged safety/effect controls. Changing these docs does not
-disable existing enforcement or automatically reopen parked attempts.
+The lanectl transition is now installed on the workstation (see November 16
+reassessment). Its source and runtime evidence establish prospective behavior,
+not a measured improvement in product delivery. Future hosts still need explicit
+installation; changing these docs does not alter their enforcement or reopen
+parked attempts.
 
 For environments, prioritize the exact paths that already produced failures;
 verify setup/check/dev entrypoints and a broken-prerequisite control with real
@@ -98,7 +98,44 @@ estate-wide rollout from the shared rule alone.
   Shared guidance and reusable skill authored; subsequent effectiveness,
   runtime-policy implementation and environment rollout are pending.
 
-## Validation of this guidance change
+### 2026-11-16: runtime policy delivered; environment remedy in progress
+
+- LANECTL #2912 is accepted by served decision 490. [PR #10](https://github.com/bayleafwalker/lanectl/pull/10)
+  landed exact source `78bb0e27f19be812fa285d4034a9ff8ef951b421`;
+  [0.2.16](https://github.com/bayleafwalker/lanectl/releases/tag/v0.2.16) is
+  published and installed on the workstation. Local and canonical Ubuntu suites
+  each passed 1,237 tests without skips. Two clean offline wheels matched, all
+  64 installed runtime files matched the downloaded wheel, and isolated installed
+  policy/routing checks passed 23 tests.
+- Independent consumer acceptance caught the historical first-claim policy bug
+  during implementation. The retained two-digest regression exercises both open
+  and finished recovery plus evaluation; restoring that bug makes both cases
+  fail. The unchanged 2,903-event historical prefix projects the same four parked
+  outcomes. Earlier failures and experiment policies remain attributed; this
+  rollout supplies no retrospective retry or model-error repair permission.
+- Keep the prospective policy and independent oracle remedy for subsequent
+  product work. This proves the implemented transition and sensitivity of the
+  selected consumers, not fewer escaped product defects or lower cost. Those
+  outcome denominators and coordinator-effort measurements remain unknown.
+- Environment reconstruction recurred: the first local full-suite invocation
+  lacked the user systemd-bus variables and was interrupted after 21 failures;
+  the correctly configured run passed. The standalone release wheel needed no
+  runtime dependencies, while optional offline test dependency installation
+  found an incomplete cache. These are setup observations, not product defects.
+- HLA #2913 now owns clean-checkout setup, separated fenced checks and a
+  representative frontend smoke. Python-only setup did not prepare the pinned
+  Node/npm/native frontend tools. HLA owns the readable entrypoints; root owns
+  trusted lanectl configuration. Implementation and independent qualification
+  are in progress; no product train or estate-wide environment rollout is claimed.
+- Next reassessment: the HLA setup qualification and next actual product outcome.
+  Verify missing-prerequisite failures early, then observe whether workers can
+  use the documented path without coordinator environment repair. Keep concrete
+  failure controls and revise any remedy that adds effort without useful evidence.
+
+## Validation of the original November 15 guidance change
+
+These statements concern the original guidance-only change; the November 16
+runtime rollout is recorded separately above.
 
 - New skill frontmatter validation passed; a temporary malformed skill missing
   its description was rejected by the same validator.
