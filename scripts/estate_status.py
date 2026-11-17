@@ -428,6 +428,7 @@ class Probe:
         self.record = record
         self.replay = replay
         self._secrets: list[str] = []
+        self._deferred: list[tuple[str, dict[str, Any]]] | None = None
         if record:
             record.mkdir(parents=True, exist_ok=True)
 
@@ -457,12 +458,27 @@ class Probe:
                     "observed_at": None, "evidence": key}
         return json.loads(path.read_text(encoding="utf-8"))
 
-    def _store(self, key: str, result: dict[str, Any]) -> dict[str, Any]:
-        result = _redact_token_fragments(result, self._secrets)
+    def _write(self, key: str, result: dict[str, Any]) -> None:
         if self.record:
             self._fixture(key).write_text(json.dumps(result, indent=1, sort_keys=True) + "\n",
                                           encoding="utf-8")
+
+    def _store(self, key: str, result: dict[str, Any]) -> dict[str, Any]:
+        if self._deferred is not None:  # concurrent probes: redact once the secret set is complete
+            self._deferred.append((key, result))
+            return result
+        result = _redact_token_fragments(result, self._secrets)
+        self._write(key, result)
         return result
+
+    def defer_redaction(self) -> None:
+        self._deferred = []
+
+    def finish_deferred(self) -> None:
+        """Redact the held results against every secret any probe read, then record them."""
+        held, self._deferred = self._deferred or [], None
+        for key, result in held:
+            self._write(key, _redact_token_fragments(result, self._secrets))
 
     def run(self, key: str, argv: list[str], *, evidence: str | None = None,
             cwd: Path | None = None, env: dict[str, str] | None = None,
@@ -2679,8 +2695,6 @@ def build_report(probe: Probe, envs: list[str], *, fetch: bool,
             env = collect_vuoro_cloud(probe, fetch=fetch, agentops_main=agentops_main)
         else:
             env = collect_host(probe, env_id, agentops_main=agentops_main)
-        stamp_derived(env)
-        env["summary"] = summarize(env)
         if progress:
             progress(env_id, time.monotonic() - started)
         return env
@@ -2688,10 +2702,18 @@ def build_report(probe: Probe, envs: list[str], *, fetch: bool,
     # Live probes are I/O bound (ssh, kubectl, http) and independent per environment, so run
     # them side by side. A fetch rewrites shared refs and a replay is instant: stay sequential.
     if len(envs) > 1 and not probe.replay and not fetch:
+        probe.defer_redaction()
         with ThreadPoolExecutor(max_workers=len(envs)) as pool:
             out = list(pool.map(collect, envs))
+        probe.finish_deferred()
+        out = [_redact_token_fragments(env, probe._secrets) for env in out]
     else:
         out = [collect(env_id) for env_id in envs]
+    # Stamped after collection, in input order, so a fact shared by environments (agentops_main)
+    # gets the same time on every run.
+    for env in out:
+        stamp_derived(env)
+        env["summary"] = summarize(env)
     stamps = [f["observed_at"] for env in out for _, f in _walk_facts(env)]
     generated = max(stamps) if probe.replay and stamps else _now()
     return with_overall({"schema_version": SCHEMA_VERSION, "generated_at": generated,
@@ -2706,14 +2728,20 @@ def with_overall(report: dict[str, Any]) -> dict[str, Any]:
     return {**rest, "overall": overall(report), "environments": report["environments"]}
 
 
+def _gates(env: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """The environment's gate and recovery facts; a saved report lacking them reads as unknown."""
+    gate = env.get("gate") or {}
+    missing = unknown("not present in this report", "derived", "saved report")
+    return gate.get("next_blocking_gate") or missing, gate.get("recovery_class") or missing
+
+
 def overall(report: dict[str, Any]) -> dict[str, Any]:
     """Roll the per-environment gates up: ``clear`` (no gate blocks), ``unknown`` (a gate could
     not be evaluated) or ``blocked``, with the read-only command that shows why. Derived from
     the gates, so a saved report that predates it can be given one."""
     rows = []
     for env in report["environments"]:
-        gate = env["gate"]["next_blocking_gate"]
-        recovery = env["gate"]["recovery_class"]
+        gate, recovery = _gates(env)
         if not is_known(gate):
             state, name, detail = "unknown", None, gate["reason"]
         elif gate["value"]["gate"] == "none":
@@ -2828,7 +2856,7 @@ def render_markdown(report: dict[str, Any], *, warning: str | None = None,
               "| Environment | Next blocking gate | Recovery class | Known / facts |",
               "|---|---|---|---|"]
     for env in report["environments"]:
-        gate, rec = env["gate"]["next_blocking_gate"], env["gate"]["recovery_class"]
+        gate, rec = _gates(env)
         gate_txt = gate["value"]["gate"] if is_known(gate) else "unknown"
         rec_txt = rec["value"]["class"] if is_known(rec) else "unknown"
         lines.append(f"| {env['id']} | {gate_txt} | {rec_txt} | "
@@ -2837,7 +2865,7 @@ def render_markdown(report: dict[str, Any], *, warning: str | None = None,
         lines += ["", f"## {env['id']} ({env['kind']})", ""]
         if env.get("operator_self_use"):
             lines.append(f"- **Operator self-use:** {env['operator_self_use']['label']}")
-        gate, rec = env["gate"]["next_blocking_gate"], env["gate"]["recovery_class"]
+        gate, rec = _gates(env)
         lines.append(f"- **Next blocking gate:** " + (
             f"`{gate['value']['gate']}` — {gate['value']['detail']}" if is_known(gate)
             else f"unknown — {gate['reason']}"))
@@ -2926,7 +2954,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"probing {len(envs)} environment(s): {', '.join(envs)}", file=sys.stderr)
             progress = lambda env_id, seconds: print(f"  ● {env_id} done in {seconds:.1f}s", file=sys.stderr)
         report = build_report(probe, envs, fetch=ns.fetch and not ns.replay, progress=progress)
-        elapsed = time.monotonic() - started
+        elapsed = None if ns.replay else time.monotonic() - started  # replays stay reproducible
     if ns.from_file:
         report["saved_report_age"] = saved_report_age(report)
         report = with_overall(report)  # derived from the gates; older saved reports lack it

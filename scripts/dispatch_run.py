@@ -57,7 +57,9 @@ Status file: --status-file receives an agentops-dispatch-run/v1 JSON record, wri
 outcome (running|done|failed|escalated), exit_code, branch, head_sha, dirty,
 final_message_tail, escalation_reason, started_at, ended_at, model, worker.
 Exit status: the worker's own code (0 done or escalated), 2 usage or unusable worker CLI.
---dry-run checks the worktree, worker CLI and model, prints the command, and starts nothing."""
+--dry-run checks that the worktree is a git worktree, the worker CLI is on PATH and supports the
+flags needed, and the model id is well-formed (not that it exists or is routed); it prints the
+command and starts nothing."""
 
 
 def parser() -> argparse.ArgumentParser:
@@ -72,7 +74,7 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--kill-grace", type=float, default=5, help="seconds to wait after SIGTERM before SIGKILL (default: 5; 0 disables grace; maximum: 300)")
     p.add_argument("--data-boundary-attested", action="store_true", help="attest OpenCode input meets external-provider boundary")
     p.add_argument("--dry-run", action="store_true",
-                   help="validate worktree, worker CLI and model; print the resolved command; start nothing")
+                   help="validate worktree, worker CLI and model id syntax; print the resolved command; start nothing")
     p.add_argument("prompt", help="bounded worker outcome and acceptance criteria")
     return p
 

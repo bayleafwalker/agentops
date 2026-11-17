@@ -1,6 +1,7 @@
 """The `agentops` front door, estate status roll-up and dispatch run --dry-run."""
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -99,3 +100,29 @@ def test_dispatch_run_dry_run_starts_nothing(tmp_path):
                  env=dict(os.environ, PATH=f"{fake}:{os.environ['PATH']}"))
     assert r.returncode == 0 and "command:" in r.stdout and "--model gpt-6-luna" in r.stdout
     assert not status.exists()
+
+
+@pytest.mark.parametrize("topic", [name for name, _ in __import__("agentops_front").START_HERE])
+def test_start_here_usage_is_spelled_as_typed(topic):
+    r = agentops(*topic.split(), "--help")
+    assert r.returncode == 0 and r.stdout.startswith(f"usage: agentops {topic}")
+
+
+def test_replay_markdown_is_byte_identical():
+    base = ["estate", "status", "--replay", str(FIXTURES)]
+    first, second = agentops(*base), agentops(*base)
+    assert first.returncode == second.returncode == 0
+    assert first.stdout == second.stdout
+    assert not re.search(r"\d\.\ds\b", first.stdout.splitlines()[0])  # no elapsed time in a replay
+
+
+def test_saved_report_without_gates_reemits_as_unknown(tmp_path):
+    saved = json.loads(agentops("estate", "status", "--replay", str(FIXTURES), "--json").stdout)
+    del saved["overall"]
+    for env in saved["environments"]:
+        env.pop("gate")
+    (tmp_path / "r.json").write_text(json.dumps(saved))
+    for extra in ([], ["--json"]):
+        r = agentops("estate", "status", "--from", str(tmp_path / "r.json"), *extra)
+        assert r.returncode == 0, r.stderr
+    assert json.loads(r.stdout)["overall"]["verdict"] == "unknown"

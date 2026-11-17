@@ -20,15 +20,16 @@ if [[ -L "$self" ]] && command -v readlink >/dev/null 2>&1; then
 fi
 root="$(cd -- "$(dirname -- "$self")/.." && pwd)"
 
-PY=""
-for candidate in python3 /usr/bin/python3 "$HOME/.local/bin/python3"; do
-  if command -v "$candidate" >/dev/null 2>&1; then PY="$candidate"; break; fi
-done
-if [[ -z "$PY" ]]; then
+# python3 is looked up only where needed, so the uv-run topics work without it.
+py() {
+  local candidate
+  for candidate in python3 /usr/bin/python3 "$HOME/.local/bin/python3"; do
+    if command -v "$candidate" >/dev/null 2>&1; then printf '%s' "$candidate"; return 0; fi
+  done
   printf 'agentops: no python3 on PATH\n' >&2
   exit 127
-fi
-front() { exec "$PY" "$root/scripts/agentops_front.py" "$@"; }
+}
+front() { exec "$(py)" "$root/scripts/agentops_front.py" "$@"; }
 
 # Front door: help is a map (stdout, exit 0); `help <topic>` is `<topic> --help`.
 if [[ $# -lt 1 ]]; then front help; fi
@@ -41,7 +42,6 @@ esac
 
 topic="$1"; shift
 script=""
-prog="agentops ${topic//_/-}"
 families="estate dispatch"  # `agentops <family> <word>` selects scripts/<family>_<word>.py
 dir="$root/scripts"
 if [[ ! "$topic" =~ ^[A-Za-z0-9_-]+$ ]]; then
@@ -53,7 +53,6 @@ elif [[ " $families " == *" $topic "* ]]; then
   if [[ -z "$word" || "$word" == -h || "$word" == --help || "$word" == help ]]; then front group "$topic"; fi
   if [[ "$word" =~ ^[A-Za-z0-9_-]+$ && -r "$dir/${topic}_${word//-/_}.py" ]]; then
     script="$dir/${topic}_${word//-/_}.py"
-    prog="agentops $topic ${word//_/-}"
     # estate_status.py receives `status ...` so its own usage line can spell the two-word
     # form; every other family script receives only its arguments.
     if [[ "$topic" != estate ]]; then shift; fi
@@ -75,10 +74,4 @@ if [[ "$script" == "$root/scripts/operator_requests.py" || "$script" == "$root/s
   exec uv run --no-config --no-project --locked --script "$script" "$@"
 fi
 
-# Run the script with argv[0] set to the canonical spelling, so argparse usage lines
-# read `agentops estate status ...` instead of `estate_status.py ...`. The script
-# directory goes on sys.path as it would when run by path; the cwd does not.
-exec "$PY" -c 'import runpy, sys
-script, sys.argv = sys.argv[1], sys.argv[2:]
-sys.path[:] = [script.rsplit("/", 1)[0]] + [p for p in sys.path if p]
-runpy.run_path(script, run_name="__main__")' "$script" "$prog" "$@"
+exec "$(py)" "$script" "$@"
