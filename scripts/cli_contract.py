@@ -71,7 +71,9 @@ def typo_of(name: str) -> str:
     if len(name) < 3:
         return name + "x"
     i = len(name) // 2
-    return name[: i - 1] + name[i] + name[i - 1] + name[i + 1 :]
+    swapped = name[: i - 1] + name[i] + name[i - 1] + name[i + 1 :]
+    # A swap of two equal letters ("commit") would run the real command.
+    return swapped if swapped != name else name + "x"
 
 
 def evaluate(cmd: list[str], args: argparse.Namespace) -> list[Check]:
@@ -88,8 +90,9 @@ def evaluate(cmd: list[str], args: argparse.Namespace) -> list[Check]:
     add("help.speed", help_run.seconds <= args.help_budget,
         f"{help_run.seconds:.2f}s (budget {args.help_budget:g}s)")
     help_text = help_run.out
-    add("help.examples", "example" in help_text.lower(),
-        "has an Examples section" if "example" in help_text.lower() else "no 'Examples' in --help")
+    has_examples = bool(re.search(r"(?im)^\s*examples?:", help_text))
+    add("help.examples", has_examples,
+        "has an Examples: section" if has_examples else "no 'Examples:' section in --help")
     cut = [ln.strip() for ln in help_text.splitlines() if TRUNCATED.search(ln)]
     add("help.no_truncation", not cut, f"{len(cut)} truncated line(s)" + (f": {cut[0][:80]}" if cut else ""))
     wide = [ln for ln in help_text.splitlines() if len(ln) > args.max_width]
@@ -108,12 +111,18 @@ def evaluate(cmd: list[str], args: argparse.Namespace) -> list[Check]:
         f"exit {bare.code}; stdout {len(bare.out)} bytes; {excerpt(bare.out or bare.err)}")
 
     if args.command:
+        sub_help = run(cmd + [args.command, "--help"], env, args.timeout)
+        add("help.subcommand", sub_help.code == 0 and bool(sub_help.out.strip())
+            and TRACEBACK not in sub_help.out + sub_help.err,
+            f"`{args.command} --help` -> exit {sub_help.code}; {excerpt(sub_help.err or sub_help.out)}")
         bad = typo_of(args.command)
+        assert bad != args.command
         typo = run(cmd + [bad], env, args.timeout)
         said = (typo.out + typo.err).lower()
         add("typo.suggests", typo.code == 2 and "did you mean" in said and args.command in said,
             f"`{bad}` -> exit {typo.code}; {excerpt(typo.err or typo.out)}")
     else:
+        add("help.subcommand", None, "pass --command <real subcommand> to check")
         add("typo.suggests", None, "pass --command <real subcommand> to check")
 
     unknown = run(cmd + ["--definitely-not-an-option"], env, args.timeout)
@@ -131,15 +140,14 @@ def evaluate(cmd: list[str], args: argparse.Namespace) -> list[Check]:
         raw = [ln for ln in lines if ln.lstrip().startswith(("{", "[", '"'))]
         add("status.human_text", status.code == 0 and not raw and len(lines) <= args.status_lines,
             f"{len(lines)} lines (max {args.status_lines}); {len(raw)} raw-JSON line(s)")
-        add("status.next_step", bool(re.search(r"(?im)^\s*(next|→|->|run)\b", status.out)),
-            "names a next command" if re.search(r"(?im)^\s*(next|→|->|run)\b", status.out)
-            else "no 'next:' line")
+        has_next = bool(re.search(r"(?im)^\s*(next:|→|->)", status.out))
+        add("status.next_step", has_next, "names a next command" if has_next else "no 'next:' line")
         add("status.no_color", not ANSI.search(status.out), "no ANSI in non-TTY status"
             if not ANSI.search(status.out) else "ANSI escapes in non-TTY status")
         sj = run(cmd + args.status.split() + ["--json"], env, args.timeout)
         try:
             doc = json.loads(sj.out)
-            ok = isinstance(doc, dict) and isinstance(doc.get("schema"), str)
+            ok = sj.code == 0 and isinstance(doc, dict) and isinstance(doc.get("schema"), str)
             detail = f"schema={doc.get('schema')!r}" if isinstance(doc, dict) else f"top level is {type(doc).__name__}"
         except ValueError:
             ok, detail = False, f"exit {sj.code}; not JSON: {excerpt(sj.err or sj.out)}"
@@ -176,8 +184,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--status", help="read-only status subcommand to check, e.g. 'status' or 'usage --context'")
     p.add_argument("--json", action="store_true", help=f"emit {SCHEMA} JSON")
     p.add_argument("--help-budget", type=float, default=0.5, help="seconds allowed for --help (default 0.5)")
-    p.add_argument("--status-budget", type=float, default=2.0, help="seconds allowed for status (default 2)")
-    p.add_argument("--status-lines", type=int, default=40, help="max status lines (default 40)")
+    p.add_argument("--status-budget", type=float, default=1.0, help="seconds allowed for status (default 1)")
+    p.add_argument("--status-lines", type=int, default=24, help="max status lines (default 24)")
     p.add_argument("--max-width", type=int, default=100, help="max help line width at COLUMNS=80 (default 100)")
     p.add_argument("--timeout", type=float, default=30.0, help="per-invocation timeout seconds (default 30)")
     p.add_argument("cmd", nargs=argparse.REMAINDER, help="the tool to probe, after --")
