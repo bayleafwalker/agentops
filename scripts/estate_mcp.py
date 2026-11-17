@@ -158,7 +158,9 @@ class Server:
         try:
             report = estate.build_report(probe, envs, fetch=fetch and not probe.replay)
         except Exception as error:  # noqa: BLE001 - surface as a tool error, keep serving
-            text = estate.redact(f"estate status failed: {type(error).__name__}: {error}")
+            text = estate._redact_token_fragments(
+                f"estate status failed: {type(error).__name__}: {error}", getattr(probe, "_secrets", []))
+            text = estate.guard(text)[0]
             return {"content": [{"type": "text", "text": text}], "isError": True}
         report = estate.guard_report(report)  # same emit guard as the CLI
         return {"content": [{"type": "text", "text": json.dumps(report, indent=1)}],

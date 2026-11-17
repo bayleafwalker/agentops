@@ -137,3 +137,57 @@ def test_saved_report_without_gates_reemits_as_unknown(tmp_path):
         r = agentops("estate", "status", "--from", str(tmp_path / "r.json"), *extra)
         assert r.returncode == 0, r.stderr
     assert json.loads(r.stdout)["overall"]["verdict"] == "unknown"
+
+
+def saved(tmp_path, edit):
+    doc = json.loads(agentops("estate", "status", "--replay", str(FIXTURES), "--json").stdout)
+    doc.pop("overall")
+    edit(doc)
+    path = tmp_path / "saved.json"
+    path.write_text(json.dumps(doc))
+    return str(path)
+
+
+def test_brief_puts_the_blocking_environment_first(tmp_path):
+    def swap(doc):
+        by = {e["id"]: e for e in doc["environments"]}
+        by["devbox"]["gate"], by["infra"]["gate"] = by["infra"]["gate"], by["devbox"]["gate"]
+    out = agentops("estate", "status", "--from", saved(tmp_path, swap)).stdout
+    assert out.splitlines()[0].startswith("Estate: ✗ blocked")
+    assert "next: agentops estate status --env infra" in out and "\n  infra: " in out
+
+
+def test_control_characters_never_reach_the_terminal(tmp_path):
+    def poison(doc):
+        env = doc["environments"][-1]
+        env["id"] = "in\nfra\x1b[2J\r"
+        env["gate"]["next_blocking_gate"] = estate.known(
+            {"gate": "g\x1b]52;c;QUJD\x07", "detail": "d\x1b[2J\r\x9b"}, "derived", "x", "2026-10-14T00:00:00Z")
+    path = saved(tmp_path, poison)
+    for extra in ([], ["--all"]):
+        out = agentops("estate", "status", "--from", path, *extra).stdout
+        assert not re.search(r"[\x00-\x09\x0b-\x1f\x7f-\x9f]", out), repr(out)
+
+
+def test_brief_is_capped_with_many_environments(tmp_path):
+    def many(doc):
+        base = doc["environments"][0]
+        doc["environments"] = [{**json.loads(json.dumps(base)), "id": f"env-{i}"} for i in range(40)]
+    out = agentops("estate", "status", "--from", saved(tmp_path, many)).stdout
+    assert len(out.splitlines()) <= 24 and "more (agentops estate status --all)" in out
+
+
+@pytest.mark.parametrize("bad", ["[]", "{}", '{"generated_at": "x", "environments": [{"id": 3}]}',
+                                 '{"generated_at": 5, "environments": []}', "not json",
+                                 '{"generated_at": "x", "environments": [{"id": "a", "desired":'
+                                 ' {"f": {"status": "unknown"}}}]}'])
+def test_malformed_saved_report_exits_2_without_traceback(tmp_path, bad):
+    path = tmp_path / "bad.json"
+    path.write_text(bad)
+    r = agentops("estate", "status", "--from", str(path))
+    assert r.returncode == 2 and "Traceback" not in r.stderr and len(r.stderr.splitlines()) == 1
+
+
+def test_schema_field_only_on_v1_reports():
+    assert "schema" not in estate.with_overall({"schema_version": "estate-status/v2", "environments": []})
+    assert estate.with_overall({"schema_version": "estate-status/v1", "environments": []})["schema"]

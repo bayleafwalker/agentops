@@ -210,7 +210,8 @@ def _redact_token_fragments(value: Any, secrets: list[str]) -> Any:
                     else: merged.append((a, b))
                 for a, b in reversed(merged): value = value[:a] + "[REDACTED]" + value[b:]
         return redact(value)
-    if isinstance(value, dict): return {k: _redact_token_fragments(v, secrets) for k, v in value.items()}
+    if isinstance(value, dict):
+        return {_redact_token_fragments(k, secrets): _redact_token_fragments(v, secrets) for k, v in value.items()}
     if isinstance(value, list): return [_redact_token_fragments(v, secrets) for v in value]
     if isinstance(value, tuple): return tuple(_redact_token_fragments(v, secrets) for v in value)
     return value
@@ -428,7 +429,6 @@ class Probe:
         self.record = record
         self.replay = replay
         self._secrets: list[str] = []
-        self._deferred: list[tuple[str, dict[str, Any]]] | None = None
         if record:
             record.mkdir(parents=True, exist_ok=True)
 
@@ -458,27 +458,16 @@ class Probe:
                     "observed_at": None, "evidence": key}
         return json.loads(path.read_text(encoding="utf-8"))
 
-    def _write(self, key: str, result: dict[str, Any]) -> None:
+    def register_secret(self, value: str | None) -> None:
+        if value and value not in self._secrets:
+            self._secrets.append(value)
+
+    def _store(self, key: str, result: dict[str, Any]) -> dict[str, Any]:
+        result = _redact_token_fragments(result, self._secrets)
         if self.record:
             self._fixture(key).write_text(json.dumps(result, indent=1, sort_keys=True) + "\n",
                                           encoding="utf-8")
-
-    def _store(self, key: str, result: dict[str, Any]) -> dict[str, Any]:
-        if self._deferred is not None:  # concurrent probes: redact once the secret set is complete
-            self._deferred.append((key, result))
-            return result
-        result = _redact_token_fragments(result, self._secrets)
-        self._write(key, result)
         return result
-
-    def defer_redaction(self) -> None:
-        self._deferred = []
-
-    def finish_deferred(self) -> None:
-        """Redact the held results against every secret any probe read, then record them."""
-        held, self._deferred = self._deferred or [], None
-        for key, result in held:
-            self._write(key, _redact_token_fragments(result, self._secrets))
 
     def run(self, key: str, argv: list[str], *, evidence: str | None = None,
             cwd: Path | None = None, env: dict[str, str] | None = None,
@@ -2676,6 +2665,9 @@ def summarize(env: dict[str, Any]) -> dict[str, Any]:
 
 def build_report(probe: Probe, envs: list[str], *, fetch: bool,
                  progress: Callable[[str, float], None] | None = None) -> dict[str, Any]:
+    if not probe.replay:  # every designated credential is known before any result is stored
+        probe.register_secret(_workspace_credential(VUORO_CLOUD["profile"])[0])
+        probe.register_secret(_read_credential(VUORO_CLOUD["operator_token_file"], "operator credential")[0])
     if fetch and any(e in HOSTS or e == "vuoro-cloud" for e in envs):
         git(probe, "agentops.fetch", ROOT, "fetch", "--quiet", "origin", "main", timeout=60)
     agentops_url = probe.run("agentops.remote-url", ["git", "-C", str(ROOT), "remote", "get-url", "origin"],
@@ -2702,11 +2694,8 @@ def build_report(probe: Probe, envs: list[str], *, fetch: bool,
     # Live probes are I/O bound (ssh, kubectl, http) and independent per environment, so run
     # them side by side. A fetch rewrites shared refs and a replay is instant: stay sequential.
     if len(envs) > 1 and not probe.replay and not fetch:
-        probe.defer_redaction()
         with ThreadPoolExecutor(max_workers=len(envs)) as pool:
             out = list(pool.map(collect, envs))
-        probe.finish_deferred()
-        out = [_redact_token_fragments(env, probe._secrets) for env in out]
     else:
         out = [collect(env_id) for env_id in envs]
     # Stamped after collection, in input order, so a fact shared by environments (agentops_main)
@@ -2724,29 +2713,34 @@ def build_report(probe: Probe, envs: list[str], *, fetch: bool,
 
 REPORT_SCHEMA = "agentops.estate-status/v1"  # the operator-interface spelling of schema_version
 BRIEF_REASONS = 3
+BRIEF_ENVIRONMENTS = 12
 
 
 def render_brief(report: dict[str, Any], *, warning: str | None = None,
                  elapsed: float | None = None) -> str:
-    """The default human view, at most 24 lines: verdict, one line per environment, the top
-    reasons, the next command and where the full report is."""
+    """The default human view, at most 24 lines: verdict, one line per environment (blocked
+    first), the top reasons, the next command and where the full report is."""
     roll = report.get("overall") or overall(report)
     lines = render_verdict(report, elapsed)[:1]
     if warning:
         lines.append(_cell(warning.removeprefix("> **Warning:** "), 96))
-    width = max((len(row["id"]) for row in roll["environments"]), default=0)
-    for row in roll["environments"]:
+    order = {"blocked": 0, "unknown": 1, "clear": 2}
+    rows = sorted(roll["environments"], key=lambda r: order[r["state"]])  # stable within a state
+    width = max((len(_plain(row["id"])) for row in rows), default=0)
+    for row in rows[:BRIEF_ENVIRONMENTS]:
         gate = row["gate"] or ("unknown" if row["state"] == "unknown" else "none")
-        lines.append(f"  {STATE_MARK[row['state']]} {row['id']:<{width}}  {row['state']:<8} "
-                     f"gate {gate}; recovery {row['recovery_class'] or 'unknown'}")
-    open_rows = [r for r in roll["environments"] if r["state"] != "clear"]
+        lines.append(f"  {STATE_MARK[row['state']]} {_plain(row['id']):<{width}}  {row['state']:<8} "
+                     f"gate {_plain(gate)}; recovery {_plain(row['recovery_class'] or 'unknown')}")
+    if len(rows) > BRIEF_ENVIRONMENTS:
+        lines.append(f"  … {len(rows) - BRIEF_ENVIRONMENTS} more (agentops estate status --all)")
+    open_rows = [r for r in rows if r["state"] != "clear"]
     if open_rows:
         lines.append("")
         for row in open_rows[:BRIEF_REASONS]:
-            lines.append(f"  {row['id']}: {_cell(row['detail'], 80)}")
+            lines.append(f"  {_plain(row['id'])}: {_cell(row['detail'], 80)}")
         if len(open_rows) > BRIEF_REASONS:
             lines.append(f"  … {len(open_rows) - BRIEF_REASONS} more")
-    lines += ["", f"next: {open_rows[0]['next'][0]}" if open_rows else "next: nothing to fix",
+    lines += ["", f"next: {_plain(open_rows[0]['next'][0])}" if open_rows else "next: nothing to fix",
               "full report: agentops estate status --all"]
     return "\n".join(lines) + "\n"
 
@@ -2754,8 +2748,9 @@ def render_brief(report: dict[str, Any], *, warning: str | None = None,
 def with_overall(report: dict[str, Any]) -> dict[str, Any]:
     """The report with its roll-up placed before the (long) environments, where a reader sees it."""
     rest = {k: v for k, v in report.items() if k not in ("overall", "environments")}
-    head = {"schema_version": rest.pop("schema_version", SCHEMA_VERSION), "schema": REPORT_SCHEMA}
+    version = rest.pop("schema_version", SCHEMA_VERSION)
     rest.pop("schema", None)
+    head = {"schema_version": version, **({"schema": REPORT_SCHEMA} if version == SCHEMA_VERSION else {})}
     return {**head, **rest, "overall": overall(report), "environments": report["environments"]}
 
 
@@ -2794,6 +2789,15 @@ def overall(report: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------- markdown
 
 
+_CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+_CONTROL_KEEP_NL = re.compile(r"[\x00-\x09\x0b-\x1f\x7f-\x9f]")
+
+
+def _plain(value: Any) -> str:
+    """Text safe for a terminal: C0/C1 control characters and DEL become spaces."""
+    return _CONTROL.sub(" ", value if isinstance(value, str) else str(value))
+
+
 def _scalar(value: Any) -> str:
     return value if isinstance(value, str) else json.dumps(value)
 
@@ -2813,7 +2817,7 @@ def _cell(value: Any, limit: int = 160) -> str:
             if all(not isinstance(v, (dict, list)) for v in value) else f"{len(value)} items"
     else:
         text = _scalar(value)
-    text = text.replace("|", "\\|").replace("\n", " ")
+    text = _plain(text).replace("|", "\\|")
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
@@ -2866,13 +2870,13 @@ def render_verdict(report: dict[str, Any], elapsed: float | None = None) -> list
     lines = [f"Estate: {STATE_MARK[roll['verdict']]} {roll['verdict']} · "
              f"{counts['clear']} clear, {counts['unknown']} unknown, {counts['blocked']} blocked "
              f"of {len(roll['environments'])}{took}"]
-    width = max((len(row["id"]) for row in roll["environments"]), default=0)
+    width = max((len(_plain(row["id"])) for row in roll["environments"]), default=0)
     for row in roll["environments"]:
         if row["state"] == "clear":
             continue
         why = row["detail"] if row["state"] == "unknown" else f"{row['gate']}: {row['detail']}"
-        lines += [f"  {STATE_MARK[row['state']]} {row['id']:<{width}}  {row['state']:<8} {_cell(why, 96)}",
-                  *(f"    next: {cmd}" for cmd in row["next"])]
+        lines += [f"  {STATE_MARK[row['state']]} {_plain(row['id']):<{width}}  {row['state']:<8} {_cell(why, 96)}",
+                  *(f"    next: {_plain(cmd)}" for cmd in row["next"])]
     return lines
 
 
@@ -2888,12 +2892,12 @@ def render_markdown(report: dict[str, Any], *, warning: str | None = None,
               "|---|---|---|---|"]
     for env in report["environments"]:
         gate, rec = _gates(env)
-        gate_txt = gate["value"]["gate"] if is_known(gate) else "unknown"
-        rec_txt = rec["value"]["class"] if is_known(rec) else "unknown"
-        lines.append(f"| {env['id']} | {gate_txt} | {rec_txt} | "
+        gate_txt = _cell(gate["value"]["gate"]) if is_known(gate) else "unknown"
+        rec_txt = _cell(rec["value"]["class"]) if is_known(rec) else "unknown"
+        lines.append(f"| {_cell(env['id'])} | {gate_txt} | {rec_txt} | "
                      f"{env['summary']['known']} / {env['summary']['facts']} |")
     for env in report["environments"]:
-        lines += ["", f"## {env['id']} ({env['kind']})", ""]
+        lines += ["", f"## {_plain(env['id'])} ({_plain(env['kind'])})", ""]
         if env.get("operator_self_use"):
             lines.append(f"- **Operator self-use:** {env['operator_self_use']['label']}")
         gate, rec = _gates(env)
@@ -2930,10 +2934,48 @@ def render_markdown(report: dict[str, Any], *, warning: str | None = None,
         if env["summary"]["unknown"]:
             lines += ["", "### Unknown facts", ""]
             lines += [f"- `{u['fact']}`: {u['reason']}" for u in env["summary"]["unknown"]]
-    return "\n".join(lines) + "\n"
+    return _CONTROL_KEEP_NL.sub(" ", "\n".join(lines) + "\n")
 
 
 # ---------------------------------------------------------------- CLI
+
+
+def _saved_report_problem(report: Any) -> str | None:
+    """First structural reason a --from file cannot be rendered, or None. Only what the
+    renderers rely on is checked; unknown extra fields are left to the emit guard."""
+    if not isinstance(report, dict):
+        return f"top level is {type(report).__name__}, not an object"
+    if not isinstance(report.get("generated_at"), str):
+        return "generated_at is missing or not a string"
+    if not isinstance(report.get("environments"), list):
+        return "environments is missing or not a list"
+    for i, env in enumerate(report["environments"]):
+        if not isinstance(env, dict) or not isinstance(env.get("id"), str) or not env["id"]:
+            return f"environments[{i}] has no string id"
+        for section in ("desired", "running", "usable", "held", "document", "receipts"):
+            if not isinstance(env.get(section, {}), dict):
+                return f"environments[{i}].{section} is not an object"
+        for path, fact in _walk_facts(env):
+            if fact == GUARD_PLACEHOLDER:  # a field an earlier emission redacted
+                continue
+            if not isinstance(fact, dict) or fact.get("status") not in ("known", "unknown"):
+                return f"environments[{i}] fact {path} has no known/unknown status"
+            if fact["status"] == "unknown" and not isinstance(fact.get("reason"), str):
+                return f"environments[{i}] fact {path} is unknown without a reason"
+    return None
+
+
+def load_saved_report(path: Path) -> tuple[dict[str, Any] | None, str]:
+    """A saved report for --from, or the one-line reason it cannot be used. A report that
+    predates `gate` still loads (it reads as unknown)."""
+    try:
+        report = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError) as error:
+        return None, f"cannot read {path}: {type(error).__name__}"
+    problem = _saved_report_problem(report)
+    if problem:
+        return None, f"{path} is not an estate-status/v1 report: {_plain(problem)}"
+    return report, ""
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -2972,7 +3014,10 @@ def main(argv: list[str] | None = None) -> int:
     started = time.monotonic()
     elapsed = None
     if ns.from_file:
-        report = json.loads(ns.from_file.read_text(encoding="utf-8"))
+        report, problem = load_saved_report(ns.from_file)
+        if report is None:
+            print(f"agentops estate status: {problem}", file=sys.stderr)
+            return 2
         if ns.env:
             kept = [i for i, e in enumerate(report["environments"]) if e["id"] in ns.env]
             report["environments"] = [report["environments"][i] for i in kept]

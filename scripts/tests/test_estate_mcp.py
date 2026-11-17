@@ -117,6 +117,19 @@ class ServerTests(unittest.TestCase):
                 self.assertTrue(result["isError"])
                 self.assertIn("invalid arguments", result["content"][0]["text"])
 
+    def test_tool_error_text_is_redacted_with_probe_secrets(self):
+        secret = "Zx9Qw7Lm3Rt8Yp2Kd6Vn4Bh1Jc5Gf0Ts"  # gitleaks:allow
+        probe = estate.Probe(replay=FIXTURES)
+        probe._secrets.append(secret)
+        real = estate.build_report
+        estate.build_report = lambda *a, **k: (_ for _ in ()).throw(RuntimeError(f"boom {secret}"))
+        try:
+            result = mcp.Server(lambda: probe).handle(call(1))["result"]
+        finally:
+            estate.build_report = real
+        self.assertTrue(result["isError"])
+        self.assertNotIn(secret[:8], result["content"][0]["text"])
+
     def test_env_list_and_default_all(self):
         server = replay_server()
         report = server.handle(call(1, {"env": ["devbox", "workstation"]}))["result"]["structuredContent"]

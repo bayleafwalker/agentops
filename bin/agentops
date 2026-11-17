@@ -29,7 +29,7 @@ py() {
   printf 'agentops: no python3 on PATH\n' >&2
   exit 127
 }
-front() { exec "$(py)" "$root/scripts/agentops_front.py" "$@"; }
+front() { local PY; PY="$(py)" || exit 127; exec "$PY" "$root/scripts/agentops_front.py" "$@"; }
 
 # Front door: help is a map (stdout, exit 0); `help <topic>` is `<topic> --help`.
 if [[ $# -lt 1 ]]; then front help; fi
@@ -74,4 +74,5 @@ if [[ "$script" == "$root/scripts/operator_requests.py" || "$script" == "$root/s
   exec uv run --no-config --no-project --locked --script "$script" "$@"
 fi
 
-exec "$(py)" "$script" "$@"
+PY="$(py)" || exit 127
+exec "$PY" "$script" "$@"
