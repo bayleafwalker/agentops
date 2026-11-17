@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 BIN = ROOT / "bin/agentops"
 FIXTURES = Path(__file__).resolve().parent / "fixtures/estate_status/live-2026-10-14"
 sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "bin"))
 import estate_status as estate  # noqa: E402
 
 
