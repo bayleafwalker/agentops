@@ -57,3 +57,10 @@ source deleted in 2026-09; recover it from git history if needed.
 Operator-action request lifecycle and TUI/UI delivery: [planned refinement](docs/plans/agentops/2026-10-18-operator-actions.md).
 
 Estate-wide contract rewrite: [requirements map](docs/plans/agentops/2026-10-18-estate-contract-rewrite.md) and [architecture discovery](docs/plans/agentops/2026-10-18-estate-contract-architecture-discovery.md).
+
+## Interface exceptions
+
+`agentops` follows the operator interface contract (`docs/contracts/operator-interface.md`) with
+one exception: `agentops estate status` is a network probe (ssh, kubectl, HTTP), so it takes about
+3-4 s rather than the contract's 1 s `status` budget. Progress goes to stderr on a TTY; stdout is
+the 24-line summary (`--all` for the full report, `--json` for agents).

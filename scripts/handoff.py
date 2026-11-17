@@ -1428,67 +1428,107 @@ def cmd_continue_entry(args: argparse.Namespace) -> int:
     return 0
 
 
+HELP_DESCRIPTION = """\
+Hand a session's state to its successor: a handoff/v1 JSON file (plus a rendered .md)
+that the successor can prove still matches the tree.
+
+Lifecycle:  create -> validate -> prompt -> ack     (`open` lists handoffs nobody has acked)
+  create    write docs/dispatch/handoffs/<date>-<slug>.v<N>.json and its .md (writes files)
+  validate  refuse a handoff whose tree, evidence or tracker items have moved
+  prompt    print the successor's first prompt
+  ack       claim the handoff as its single successor (writes the claim)"""
+
+HELP_EPILOG = """\
+Examples:
+  agentops handoff create --slug fix-login --objective "Fix login" --next-action "Run tests"
+  agentops handoff validate docs/dispatch/handoffs/2026-11-17-fix-login.v1.json
+  agentops handoff open                      # unacked handoffs, newest per track
+  agentops handoff ack FILE --session-id ID  # the successor claims it
+
+Exit status: 0 ok, 1 refused (stale tree, bad evidence, already acked), 2 usage.
+How diff_sha256 is computed (digest versions v1-v5), the tracker watermark and the
+two-host ack are described in the module docstring of scripts/handoff.py.
+Run `agentops handoff <command> --help` for a command's options."""
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="agentops handoff", description=__doc__,
+        prog="agentops handoff", description=HELP_DESCRIPTION, epilog=HELP_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter)
-    sub = parser.add_subparsers(dest="command", required=True)
+    sub = parser.add_subparsers(dest="command", required=True, metavar="<command>")
 
-    create = sub.add_parser("create", help="Write a new handoff and its rendering")
-    create.add_argument("--slug", help="short kebab-case name for the handoff")
-    create.add_argument("--repo", action="append", metavar="PATH",
-                        help="repeat per repository; defaults to the cwd")
-    create.add_argument("--draft", type=Path,
-                        help="YAML or JSON draft supplying any field")
-    create.add_argument("--objective")
-    create.add_argument("--next-action", dest="next_action")
-    create.add_argument("--constraint", action="append", dest="constraint")
-    create.add_argument("--decision", action="append", metavar="WHAT::WHY")
-    create.add_argument("--rejected", action="append", metavar="WHAT::WHY")
-    create.add_argument("--unresolved", action="append")
-    create.add_argument("--evidence", action="append", metavar="KIND:REF")
-    create.add_argument("--running", action="append")
-    create.add_argument("--harness")
-    create.add_argument("--session-id", dest="session_id")
-    create.add_argument("--transcript-path", dest="transcript_path")
-    create.add_argument("--model")
-    create.add_argument("--context-used-pct", dest="context_used_pct", type=float)
-    create.add_argument("--origin-host", dest="origin_host",
-                        help="host that keeps the authoritative copy; defaults "
-                             "to this host's name. A successor on any other "
-                             "host acks through it over ssh")
-    create.add_argument("--origin-cwd", dest="origin_cwd",
-                        help="predecessor's working directory; defaults to "
-                             "the process cwd. `handoff open` uses this as "
-                             "the launch cwd")
-    create.add_argument("--track",
-                        help="identifies this continuation thread across "
-                             "create calls, independent of slug or date; "
-                             "defaults to the slug. `handoff open` collapses "
-                             "to the newest version per track")
-    create.add_argument("--out-dir", dest="out_dir")
-    create.add_argument("--date", help="override the date component (testing)")
-    create.add_argument("--no-sprintctl", action="store_true",
+    create = sub.add_parser(
+        "create", help="Write a new handoff and its rendering (writes files)",
+        description="Write a new handoff and its rendering. Every field can come from a flag "
+                    "or from --draft; flags win.",
+        epilog="Example:\n  agentops handoff create --slug fix-login --objective \"Fix login\" "
+               "--next-action \"Run the tests\" --evidence artifact:docs/plan.md",
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    content = create.add_argument_group("Content")
+    content.add_argument("--draft", type=Path, metavar="FILE",
+                         help="YAML or JSON draft supplying any field")
+    content.add_argument("--objective", help="what the work is for")
+    content.add_argument("--next-action", dest="next_action", help="the first thing the successor does")
+    content.add_argument("--constraint", action="append", dest="constraint",
+                         help="a rule the successor must keep (repeatable)")
+    content.add_argument("--decision", action="append", metavar="WHAT::WHY",
+                         help="a decision taken, with its reason (repeatable)")
+    content.add_argument("--rejected", action="append", metavar="WHAT::WHY",
+                         help="an option ruled out, with its reason (repeatable)")
+    content.add_argument("--unresolved", action="append", help="an open question (repeatable)")
+    content.add_argument("--evidence", action="append", metavar="KIND:REF",
+                         help="proof the successor can check, e.g. artifact:PATH (repeatable)")
+    content.add_argument("--running", action="append", help="work still running elsewhere (repeatable)")
+    where = create.add_argument_group("Where and who")
+    where.add_argument("--slug", help="short kebab-case name for the handoff")
+    where.add_argument("--repo", action="append", metavar="PATH",
+                       help="repeat per repository; defaults to the cwd")
+    where.add_argument("--track",
+                       help="identifies this continuation thread across "
+                            "create calls, independent of slug or date; "
+                            "defaults to the slug. `handoff open` collapses "
+                            "to the newest version per track")
+    where.add_argument("--origin-host", dest="origin_host",
+                       help="host that keeps the authoritative copy; defaults "
+                            "to this host's name. A successor on any other "
+                            "host acks through it over ssh")
+    where.add_argument("--origin-cwd", dest="origin_cwd",
+                       help="predecessor's working directory; defaults to "
+                            "the process cwd. `handoff open` uses this as "
+                            "the launch cwd")
+    session = create.add_argument_group("Session (recorded as provenance)")
+    session.add_argument("--harness", help="agent harness that ran the session")
+    session.add_argument("--session-id", dest="session_id", help="predecessor's session id")
+    session.add_argument("--transcript-path", dest="transcript_path", help="predecessor's transcript file")
+    session.add_argument("--model", help="model the predecessor ran")
+    session.add_argument("--context-used-pct", dest="context_used_pct", type=float, metavar="PCT",
+                         help="percent of the context window used")
+    output = create.add_argument_group("Output")
+    output.add_argument("--out-dir", dest="out_dir", metavar="DIR",
+                        help="write here instead of docs/dispatch/handoffs")
+    output.add_argument("--no-sprintctl", action="store_true",
                         help="skip the sprintctl bundle entirely")
+    output.add_argument("--date", help="override the date component (testing)")
     create.set_defaults(func=cmd_create)
 
     validate = sub.add_parser("validate", help="Refuse a handoff that no longer describes reality")
-    validate.add_argument("file", type=Path)
+    validate.add_argument("file", type=Path, help="handoff .json to check")
     validate.add_argument("--no-tree-check", action="store_true",
                           help="schema and paths only; skips the diff_sha256 comparison")
     validate.set_defaults(func=cmd_validate)
 
     prompt = sub.add_parser("prompt", help="Render the successor's first prompt")
-    prompt.add_argument("file", type=Path)
+    prompt.add_argument("file", type=Path, help="handoff .json to render the prompt from")
     prompt.set_defaults(func=cmd_prompt)
 
-    ack_parser = sub.add_parser("ack", help="Claim a handoff as its single successor")
-    ack_parser.add_argument("file", type=Path)
-    ack_parser.add_argument("--session-id", dest="session_id", required=True)
+    ack_parser = sub.add_parser("ack", help="Claim a handoff as its single successor (writes the claim)")
+    ack_parser.add_argument("file", type=Path, help="handoff .json to claim")
+    ack_parser.add_argument("--session-id", dest="session_id", required=True,
+                            help="the successor's own session id")
     ack_parser.set_defaults(func=cmd_ack)
 
-    render = sub.add_parser("render", help="Regenerate the .md beside a handoff")
-    render.add_argument("file", type=Path)
+    render = sub.add_parser("render", help="Regenerate the .md beside a handoff (rewrites the .md)")
+    render.add_argument("file", type=Path, help="handoff .json whose .md to rewrite")
     render.set_defaults(func=cmd_render)
 
     open_parser = sub.add_parser(
@@ -1501,7 +1541,7 @@ def main(argv: list[str] | None = None) -> int:
     continue_entry = sub.add_parser(
         "continue-entry",
         help="Render this handoff's entry for the operator's scratchpad")
-    continue_entry.add_argument("file", type=Path)
+    continue_entry.add_argument("file", type=Path, help="handoff .json to render an entry for")
     continue_entry.add_argument(
         "--into", help="upsert only this track's section into PATH; "
                        "every other byte of PATH is left untouched")
