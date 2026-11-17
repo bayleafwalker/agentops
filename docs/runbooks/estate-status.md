@@ -62,11 +62,12 @@ and review and is not a release qualification.
 ## CLI
 
 ```sh
-agentops estate status                      # Markdown, all environments
+agentops estate status                      # short summary (24 lines at most), all environments
+agentops estate status --all                # the full Markdown evidence report
 agentops estate status --env vuoro-shared   # one environment (repeatable)
-agentops estate status --json               # estate-status/v1 JSON
+agentops estate status --json               # estate-status/v1 JSON (`schema: agentops.estate-status/v1` beside `schema_version`)
 agentops estate status --fetch              # git fetch deploying repos' remote-tracking refs first
-agentops estate status --from report.json   # render a saved JSON report as Markdown
+agentops estate status --from report.json   # render a saved JSON report (add --all for the full report)
 agentops estate status --record DIR         # also write redacted probe results (fixtures)
 agentops estate status --replay DIR         # answer every probe from fixtures (no network)
 ```

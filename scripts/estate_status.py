@@ -2722,10 +2722,41 @@ def build_report(probe: Probe, envs: list[str], *, fetch: bool,
                          "environments": out})
 
 
+REPORT_SCHEMA = "agentops.estate-status/v1"  # the operator-interface spelling of schema_version
+BRIEF_REASONS = 3
+
+
+def render_brief(report: dict[str, Any], *, warning: str | None = None,
+                 elapsed: float | None = None) -> str:
+    """The default human view, at most 24 lines: verdict, one line per environment, the top
+    reasons, the next command and where the full report is."""
+    roll = report.get("overall") or overall(report)
+    lines = render_verdict(report, elapsed)[:1]
+    if warning:
+        lines.append(_cell(warning.removeprefix("> **Warning:** "), 96))
+    width = max((len(row["id"]) for row in roll["environments"]), default=0)
+    for row in roll["environments"]:
+        gate = row["gate"] or ("unknown" if row["state"] == "unknown" else "none")
+        lines.append(f"  {STATE_MARK[row['state']]} {row['id']:<{width}}  {row['state']:<8} "
+                     f"gate {gate}; recovery {row['recovery_class'] or 'unknown'}")
+    open_rows = [r for r in roll["environments"] if r["state"] != "clear"]
+    if open_rows:
+        lines.append("")
+        for row in open_rows[:BRIEF_REASONS]:
+            lines.append(f"  {row['id']}: {_cell(row['detail'], 80)}")
+        if len(open_rows) > BRIEF_REASONS:
+            lines.append(f"  … {len(open_rows) - BRIEF_REASONS} more")
+    lines += ["", f"next: {open_rows[0]['next'][0]}" if open_rows else "next: nothing to fix",
+              "full report: agentops estate status --all"]
+    return "\n".join(lines) + "\n"
+
+
 def with_overall(report: dict[str, Any]) -> dict[str, Any]:
     """The report with its roll-up placed before the (long) environments, where a reader sees it."""
     rest = {k: v for k, v in report.items() if k not in ("overall", "environments")}
-    return {**rest, "overall": overall(report), "environments": report["environments"]}
+    head = {"schema_version": rest.pop("schema_version", SCHEMA_VERSION), "schema": REPORT_SCHEMA}
+    rest.pop("schema", None)
+    return {**head, **rest, "overall": overall(report), "environments": report["environments"]}
 
 
 def _gates(env: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -2914,7 +2945,8 @@ def main(argv: list[str] | None = None) -> int:
         description="Read-only per-environment desired/running/usable/held status with evidence. "
                     "Probes take 10-20 s live; --env scopes to one environment.",
         epilog="Examples:\n"
-               "  agentops estate status                  # verdict, then evidence per environment\n"
+               "  agentops estate status                  # verdict, one line per environment, next step\n"
+               "  agentops estate status --all            # the full evidence report\n"
                "  agentops estate status --env devbox     # one environment, faster\n"
                "  agentops estate status --json           # estate-status/v1 for agents (has `overall`)\n"
                "  agentops estate status --exit-code      # for scripts: 1 blocked, 3 unknown\n\n"
@@ -2932,6 +2964,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="render a saved estate-status/v1 JSON report instead of probing")
     parser.add_argument("--fetch", action="store_true",
                         help="git fetch the deploying repos' remote-tracking refs first")
+    parser.add_argument("--all", action="store_true", dest="full",
+                        help="print the full Markdown report instead of the short summary")
     parser.add_argument("--record", type=Path, metavar="DIR", help="write every probe result (redacted) to DIR")
     parser.add_argument("--replay", type=Path, metavar="DIR", help="answer every probe from fixtures in DIR")
     ns = parser.parse_args(args)
@@ -2962,8 +2996,9 @@ def main(argv: list[str] | None = None) -> int:
     if ns.json:
         sys.stdout.write(json.dumps(report, indent=2, sort_keys=False) + "\n")
     else:
-        sys.stdout.write(render_markdown(report, warning=report_age_warning(report) if ns.from_file else None,
-                                         elapsed=elapsed))
+        render = render_markdown if ns.full else render_brief
+        sys.stdout.write(render(report, warning=report_age_warning(report) if ns.from_file else None,
+                                elapsed=elapsed))
     if ns.exit_code:
         verdict = report["overall"]["verdict"]
         return {"blocked": 1, "unknown": 3}.get(verdict, 0)

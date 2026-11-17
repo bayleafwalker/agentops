@@ -109,11 +109,22 @@ def test_start_here_usage_is_spelled_as_typed(topic):
 
 
 def test_replay_markdown_is_byte_identical():
-    base = ["estate", "status", "--replay", str(FIXTURES)]
-    first, second = agentops(*base), agentops(*base)
-    assert first.returncode == second.returncode == 0
-    assert first.stdout == second.stdout
-    assert not re.search(r"\d\.\ds\b", first.stdout.splitlines()[0])  # no elapsed time in a replay
+    for extra in ([], ["--all"]):
+        base = ["estate", "status", "--replay", str(FIXTURES), *extra]
+        first, second = agentops(*base), agentops(*base)
+        assert first.returncode == second.returncode == 0
+        assert first.stdout == second.stdout
+        assert not re.search(r"\d\.\ds\b", first.stdout.splitlines()[0])  # no elapsed time in a replay
+
+
+def test_default_status_is_short_and_json_carries_operator_schema():
+    short = agentops("estate", "status", "--replay", str(FIXTURES)).stdout.splitlines()
+    assert len(short) <= 24 and short[-1] == "full report: agentops estate status --all"
+    assert any(line.startswith("next: ") for line in short)
+    full = agentops("estate", "status", "--replay", str(FIXTURES), "--all").stdout
+    assert "# Estate status" in full
+    doc = json.loads(agentops("estate", "status", "--replay", str(FIXTURES), "--json").stdout)
+    assert doc["schema"] == "agentops.estate-status/v1" and doc["schema_version"] == "estate-status/v1"
 
 
 def test_saved_report_without_gates_reemits_as_unknown(tmp_path):

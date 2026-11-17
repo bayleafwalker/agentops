@@ -8,6 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {"const": "estate-status/v1"},
+    "schema": {"const": "agentops.estate-status/v1"},
     "generated_at": {"type": "string", "minLength": 1, "format": "date-time"},
     "mode": {"enum": ["live", "replay"]},
     "generator": {

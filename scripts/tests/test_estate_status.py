@@ -1343,7 +1343,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(schema_check.validate(report, SCHEMA), [])
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
             handle.write(done.stdout)
-        rendered = self.run_cli("estate", "status", "--from", handle.name).stdout
+        rendered = self.run_cli("estate", "status", "--from", handle.name, "--all").stdout
         Path(handle.name).unlink()
         self.assertIn("## vuoro-shared (cluster)", rendered)
         self.assertIn("rendered from a saved report", rendered)
