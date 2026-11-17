@@ -62,9 +62,11 @@ import re
 import subprocess
 import tempfile
 import sys
+import time
 import urllib.error
 import urllib.request
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable
@@ -2656,7 +2658,8 @@ def summarize(env: dict[str, Any]) -> dict[str, Any]:
     return {"facts": len(facts), "known": len(facts) - len(unknowns), "unknown": unknowns}
 
 
-def build_report(probe: Probe, envs: list[str], *, fetch: bool) -> dict[str, Any]:
+def build_report(probe: Probe, envs: list[str], *, fetch: bool,
+                 progress: Callable[[str, float], None] | None = None) -> dict[str, Any]:
     if fetch and any(e in HOSTS or e == "vuoro-cloud" for e in envs):
         git(probe, "agentops.fetch", ROOT, "fetch", "--quiet", "origin", "main", timeout=60)
     agentops_url = probe.run("agentops.remote-url", ["git", "-C", str(ROOT), "remote", "get-url", "origin"],
@@ -2667,8 +2670,9 @@ def build_report(probe: Probe, envs: list[str], *, fetch: bool) -> dict[str, Any
         agentops_main = unknown(agentops_url.get("error", "no origin remote"), "live-api",
                                 agentops_url.get("evidence", "git remote get-url origin"))
     head = _ref_sha(probe, "agentops.head", ROOT, "HEAD")
-    out = []
-    for env_id in envs:
+
+    def collect(env_id: str) -> dict[str, Any]:
+        started = time.monotonic()
         if env_id == "vuoro-shared":
             env = collect_vuoro_shared(probe, fetch=fetch)
         elif env_id == "vuoro-cloud":
@@ -2677,21 +2681,91 @@ def build_report(probe: Probe, envs: list[str], *, fetch: bool) -> dict[str, Any
             env = collect_host(probe, env_id, agentops_main=agentops_main)
         stamp_derived(env)
         env["summary"] = summarize(env)
-        out.append(env)
+        if progress:
+            progress(env_id, time.monotonic() - started)
+        return env
+
+    # Live probes are I/O bound (ssh, kubectl, http) and independent per environment, so run
+    # them side by side. A fetch rewrites shared refs and a replay is instant: stay sequential.
+    if len(envs) > 1 and not probe.replay and not fetch:
+        with ThreadPoolExecutor(max_workers=len(envs)) as pool:
+            out = list(pool.map(collect, envs))
+    else:
+        out = [collect(env_id) for env_id in envs]
     stamps = [f["observed_at"] for env in out for _, f in _walk_facts(env)]
     generated = max(stamps) if probe.replay and stamps else _now()
-    return {"schema_version": SCHEMA_VERSION, "generated_at": generated, "mode": probe.mode,
-            "generator": {"tool": "agentops estate status", "agentops_sha": head.get("value")},
-            "environments": out}
+    return with_overall({"schema_version": SCHEMA_VERSION, "generated_at": generated,
+                         "mode": probe.mode,
+                         "generator": {"tool": "agentops estate status", "agentops_sha": head.get("value")},
+                         "environments": out})
+
+
+def with_overall(report: dict[str, Any]) -> dict[str, Any]:
+    """The report with its roll-up placed before the (long) environments, where a reader sees it."""
+    rest = {k: v for k, v in report.items() if k not in ("overall", "environments")}
+    return {**rest, "overall": overall(report), "environments": report["environments"]}
+
+
+def overall(report: dict[str, Any]) -> dict[str, Any]:
+    """Roll the per-environment gates up: ``clear`` (no gate blocks), ``unknown`` (a gate could
+    not be evaluated) or ``blocked``, with the read-only command that shows why. Derived from
+    the gates, so a saved report that predates it can be given one."""
+    rows = []
+    for env in report["environments"]:
+        gate = env["gate"]["next_blocking_gate"]
+        recovery = env["gate"]["recovery_class"]
+        if not is_known(gate):
+            state, name, detail = "unknown", None, gate["reason"]
+        elif gate["value"]["gate"] == "none":
+            state, name, detail = "clear", None, None
+        else:
+            state, name, detail = "blocked", gate["value"]["gate"], gate["value"]["detail"]
+        row = {"id": env["id"], "state": state, "gate": name, "detail": detail,
+               "recovery_class": recovery["value"]["class"] if is_known(recovery) else None}
+        if state != "clear":
+            row["next"] = [f"agentops estate status --env {env['id']}"]
+            if name == "desired-current" or "remote-tracking" in (detail or ""):
+                row["next"].append(f"agentops estate status --env {env['id']} --fetch")
+        rows.append(row)
+    counts = {state: sum(r["state"] == state for r in rows) for state in ("clear", "unknown", "blocked")}
+    verdict = "blocked" if counts["blocked"] else "unknown" if counts["unknown"] else "clear"
+    return {"verdict": verdict, "counts": counts, "environments": rows}
 
 
 # ---------------------------------------------------------------- markdown
 
 
+def _scalar(value: Any) -> str:
+    return value if isinstance(value, str) else json.dumps(value)
+
+
 def _cell(value: Any, limit: int = 160) -> str:
-    text = value if isinstance(value, str) else json.dumps(value, sort_keys=True)
+    """One table cell. Text is clipped with an ellipsis; a structure is summarized whole
+    (`a=1, b=[3], +2 more`), never cut mid-JSON. The full value is in the --json report."""
+    if isinstance(value, str):
+        text = value
+    elif isinstance(value, dict):
+        parts = [f"{k}=" + (_scalar(v) if not isinstance(v, (dict, list)) else
+                            f"[{len(v)}]" if isinstance(v, list) else f"{{{len(v)}}}")
+                 for k, v in sorted(value.items())]
+        text = _fit(parts, limit)
+    elif isinstance(value, list):
+        text = _fit([_scalar(v) if not isinstance(v, (dict, list)) else "{…}" for v in value], limit) \
+            if all(not isinstance(v, (dict, list)) for v in value) else f"{len(value)} items"
+    else:
+        text = _scalar(value)
     text = text.replace("|", "\\|").replace("\n", " ")
     return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def _fit(parts: list[str], limit: int) -> str:
+    """Join whole parts while they fit, then say how many were left out."""
+    shown: list[str] = []
+    for i, part in enumerate(parts):
+        if shown and len(", ".join([*shown, part])) + len(f", +{len(parts) - i} more") > limit:
+            return ", ".join(shown) + f", +{len(parts) - i} more"
+        shown.append(part)
+    return ", ".join(shown)
 
 
 def report_age_warning(report: dict[str, Any], now: datetime | None = None) -> str:
@@ -2721,8 +2795,31 @@ def saved_report_age(report: dict[str, Any], now: datetime | None = None) -> dic
             "warning": report_age_warning(report, now).removeprefix("> **Warning:** ")}
 
 
-def render_markdown(report: dict[str, Any], *, warning: str | None = None) -> str:
-    lines = [f"# Estate status ({report['generated_at']})", ""]
+STATE_MARK = {"clear": "●", "unknown": "◌", "blocked": "✗"}
+
+
+def render_verdict(report: dict[str, Any], elapsed: float | None = None) -> list[str]:
+    """The answer first: `Estate: ✗ blocked · 2 clear, 1 unknown, 1 blocked · 12.3s`, then one
+    line per environment that is not clear, each with the command that shows why."""
+    roll = report.get("overall") or overall(report)
+    counts = roll["counts"]
+    took = f" · {elapsed:.1f}s" if elapsed is not None else ""
+    lines = [f"Estate: {STATE_MARK[roll['verdict']]} {roll['verdict']} · "
+             f"{counts['clear']} clear, {counts['unknown']} unknown, {counts['blocked']} blocked "
+             f"of {len(roll['environments'])}{took}"]
+    width = max((len(row["id"]) for row in roll["environments"]), default=0)
+    for row in roll["environments"]:
+        if row["state"] == "clear":
+            continue
+        why = row["detail"] if row["state"] == "unknown" else f"{row['gate']}: {row['detail']}"
+        lines += [f"  {STATE_MARK[row['state']]} {row['id']:<{width}}  {row['state']:<8} {_cell(why, 96)}",
+                  *(f"    next: {cmd}" for cmd in row["next"])]
+    return lines
+
+
+def render_markdown(report: dict[str, Any], *, warning: str | None = None,
+                    elapsed: float | None = None) -> str:
+    lines = [*render_verdict(report, elapsed), "", f"# Estate status ({report['generated_at']})", ""]
     if warning:
         lines += [warning, ""]
     lines += [f"Generated by `{report['generator']['tool']}` at agentops "
@@ -2753,10 +2850,13 @@ def render_markdown(report: dict[str, Any], *, warning: str | None = None) -> st
                 continue
             lines += ["", f"### {section.capitalize()}", "",
                       "| Fact | Value | Source | Observed | Evidence |", "|---|---|---|---|---|"]
+            previous = None
             for name, fact in facts.items():
                 value = fact["value"] if is_known(fact) else f"**unknown**: {fact['reason']}"
+                evidence = "ditto" if fact["evidence"] == previous else _cell(fact["evidence"], 120)
+                previous = fact["evidence"]
                 lines.append(f"| {name} | {_cell(value, 220 if not is_known(fact) else 160)} | "
-                             f"{fact['source']} | {fact['observed_at']} | {_cell(fact['evidence'], 120)} |")
+                             f"{fact['source']} | {fact['observed_at']} | {evidence} |")
         rows = [(name, fact) for name, fact in (env.get("receipts") or {}).items()]
         if rows:
             lines += ["", "### Qualification receipts", ""]
@@ -2783,19 +2883,32 @@ def main(argv: list[str] | None = None) -> int:
         args = args[1:]
     parser = argparse.ArgumentParser(
         prog="agentops estate status",
-        description="Read-only per-environment desired/running/usable/held status with evidence.")
+        description="Read-only per-environment desired/running/usable/held status with evidence. "
+                    "Probes take 10-20 s live; --env scopes to one environment.",
+        epilog="Examples:\n"
+               "  agentops estate status                  # verdict, then evidence per environment\n"
+               "  agentops estate status --env devbox     # one environment, faster\n"
+               "  agentops estate status --json           # estate-status/v1 for agents (has `overall`)\n"
+               "  agentops estate status --exit-code      # for scripts: 1 blocked, 3 unknown\n\n"
+               "Exit status: 0 ok; with --exit-code also 1 a gate blocks, 3 a gate is unknown;\n"
+               "2 usage.",
+        formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--env", action="append", choices=ENVIRONMENTS,
                         help="environment to report (repeatable; default: all)")
     output = parser.add_mutually_exclusive_group()
     output.add_argument("--json", action="store_true", help="emit estate-status/v1 JSON")
     output.add_argument("--markdown", action="store_true", help="emit Markdown (the default)")
-    parser.add_argument("--from", dest="from_file", type=Path,
+    parser.add_argument("--exit-code", action="store_true",
+                        help="exit 1 when a gate blocks, 3 when one is unknown (default: always 0)")
+    parser.add_argument("--from", dest="from_file", type=Path, metavar="FILE",
                         help="render a saved estate-status/v1 JSON report instead of probing")
     parser.add_argument("--fetch", action="store_true",
                         help="git fetch the deploying repos' remote-tracking refs first")
-    parser.add_argument("--record", type=Path, help="write every probe result (redacted) to DIR")
-    parser.add_argument("--replay", type=Path, help="answer every probe from fixtures in DIR")
+    parser.add_argument("--record", type=Path, metavar="DIR", help="write every probe result (redacted) to DIR")
+    parser.add_argument("--replay", type=Path, metavar="DIR", help="answer every probe from fixtures in DIR")
     ns = parser.parse_args(args)
+    started = time.monotonic()
+    elapsed = None
     if ns.from_file:
         report = json.loads(ns.from_file.read_text(encoding="utf-8"))
         if ns.env:
@@ -2807,14 +2920,25 @@ def main(argv: list[str] | None = None) -> int:
         if ns.record and ns.replay:
             parser.error("--record and --replay are exclusive")
         probe = Probe(record=ns.record, replay=ns.replay)
-        report = build_report(probe, ns.env or list(ENVIRONMENTS), fetch=ns.fetch and not ns.replay)
+        envs = ns.env or list(ENVIRONMENTS)
+        progress = None
+        if sys.stderr.isatty() and not ns.replay:
+            print(f"probing {len(envs)} environment(s): {', '.join(envs)}", file=sys.stderr)
+            progress = lambda env_id, seconds: print(f"  ● {env_id} done in {seconds:.1f}s", file=sys.stderr)
+        report = build_report(probe, envs, fetch=ns.fetch and not ns.replay, progress=progress)
+        elapsed = time.monotonic() - started
     if ns.from_file:
         report["saved_report_age"] = saved_report_age(report)
+        report = with_overall(report)  # derived from the gates; older saved reports lack it
     report = guard_report(report)
     if ns.json:
         sys.stdout.write(json.dumps(report, indent=2, sort_keys=False) + "\n")
     else:
-        sys.stdout.write(render_markdown(report, warning=report_age_warning(report) if ns.from_file else None))
+        sys.stdout.write(render_markdown(report, warning=report_age_warning(report) if ns.from_file else None,
+                                         elapsed=elapsed))
+    if ns.exit_code:
+        verdict = report["overall"]["verdict"]
+        return {"blocked": 1, "unknown": 3}.get(verdict, 0)
     return 0
 
 

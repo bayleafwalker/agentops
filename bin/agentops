@@ -20,33 +20,49 @@ if [[ -L "$self" ]] && command -v readlink >/dev/null 2>&1; then
 fi
 root="$(cd -- "$(dirname -- "$self")/.." && pwd)"
 
-if [[ $# -lt 1 ]]; then
-  printf 'usage: agentops <topic> [args...]\n\ntopics:\n' >&2
-  for s in "$root"/scripts/*.py; do
-    if [[ -r "$s" ]]; then basename "${s%.py}" | tr '_' '-'; fi
-  done | sort -u | sed 's/^/  /' >&2
-  exit 2
+PY=""
+for candidate in python3 /usr/bin/python3 "$HOME/.local/bin/python3"; do
+  if command -v "$candidate" >/dev/null 2>&1; then PY="$candidate"; break; fi
+done
+if [[ -z "$PY" ]]; then
+  printf 'agentops: no python3 on PATH\n' >&2
+  exit 127
 fi
+front() { exec "$PY" "$root/scripts/agentops_front.py" "$@"; }
+
+# Front door: help is a map (stdout, exit 0); `help <topic>` is `<topic> --help`.
+if [[ $# -lt 1 ]]; then front help; fi
+case "$1" in
+  -h|--help) front help ;;
+  --version|-V|version) front version ;;
+  topics) shift; front topics "$@" ;;
+  help) shift; if [[ $# -lt 1 ]]; then front help; fi; set -- "$@" --help ;;
+esac
 
 topic="$1"; shift
 script=""
-two_word_topics="estate"  # topics whose second word selects scripts/<topic>_<word>.py
+prog="agentops ${topic//_/-}"
+families="estate dispatch"  # `agentops <family> <word>` selects scripts/<family>_<word>.py
 dir="$root/scripts"
-if [[ -r "$dir/${topic//-/_}.py" ]]; then
+if [[ ! "$topic" =~ ^[A-Za-z0-9_-]+$ ]]; then
+  front unknown "$topic"
+elif [[ "$topic" != agentops_front && "$topic" != agentops-front && -r "$dir/${topic//-/_}.py" ]]; then
   script="$dir/${topic//-/_}.py"
-elif [[ "$topic" == dispatch && "${1:-}" == run && -r "$dir/dispatch_run.py" ]]; then
-  # Explicit transport spelling; keep other `dispatch <word>` inputs unrouted.
-  script="$dir/dispatch_run.py"
-  shift
-elif [[ $# -ge 1 && " $two_word_topics " == *" $topic "* && "$1" =~ ^[a-z]+$ \
-        && -r "$dir/${topic}_${1}.py" ]]; then
-  # Two-word topics, allowlisted: `agentops estate status` -> scripts/estate_status.py,
-  # which receives `status ...` so its own usage line can spell the two-word form.
-  script="$dir/${topic}_${1}.py"
+elif [[ " $families " == *" $topic "* ]]; then
+  word="${1:-}"
+  if [[ -z "$word" || "$word" == -h || "$word" == --help || "$word" == help ]]; then front group "$topic"; fi
+  if [[ "$word" =~ ^[A-Za-z0-9_-]+$ && -r "$dir/${topic}_${word//-/_}.py" ]]; then
+    script="$dir/${topic}_${word//-/_}.py"
+    prog="agentops $topic ${word//_/-}"
+    # estate_status.py receives `status ...` so its own usage line can spell the two-word
+    # form; every other family script receives only its arguments.
+    if [[ "$topic" != estate ]]; then shift; fi
+  else
+    front unknown "$topic" "$word"
+  fi
 fi
 if [[ -z "$script" ]]; then
-  printf 'agentops: no such topic %q (looked in %s/scripts)\n' "$topic" "$root" >&2
-  exit 2
+  front unknown "$topic"
 fi
 
 # This transport topic needs its released client; use its committed script
@@ -59,13 +75,10 @@ if [[ "$script" == "$root/scripts/operator_requests.py" || "$script" == "$root/s
   exec uv run --no-config --no-project --locked --script "$script" "$@"
 fi
 
-PY=""
-for candidate in python3 /usr/bin/python3 "$HOME/.local/bin/python3"; do
-  if command -v "$candidate" >/dev/null 2>&1; then PY="$candidate"; break; fi
-done
-if [[ -z "$PY" ]]; then
-  printf 'agentops: no python3 on PATH\n' >&2
-  exit 127
-fi
-
-exec "$PY" "$script" "$@"
+# Run the script with argv[0] set to the canonical spelling, so argparse usage lines
+# read `agentops estate status ...` instead of `estate_status.py ...`. The script
+# directory goes on sys.path as it would when run by path; the cwd does not.
+exec "$PY" -c 'import runpy, sys
+script, sys.argv = sys.argv[1], sys.argv[2:]
+sys.path[:] = [script.rsplit("/", 1)[0]] + [p for p in sys.path if p]
+runpy.run_path(script, run_name="__main__")' "$script" "$prog" "$@"

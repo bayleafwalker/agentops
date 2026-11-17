@@ -20,6 +20,41 @@
       }
     },
     "environments": {"type": "array", "items": {"$ref": "#/$defs/environment"}},
+    "overall": {
+      "description": "Additive roll-up of every environment's next_blocking_gate: clear (no gate blocks), unknown (a gate could not be evaluated) or blocked, with the read-only command that shows why. Derived; absent from reports saved before it existed.",
+      "type": "object",
+      "required": ["verdict", "counts", "environments"],
+      "additionalProperties": false,
+      "properties": {
+        "verdict": {"enum": ["clear", "unknown", "blocked"]},
+        "counts": {
+          "type": "object",
+          "required": ["clear", "unknown", "blocked"],
+          "additionalProperties": false,
+          "properties": {
+            "clear": {"type": "integer", "minimum": 0},
+            "unknown": {"type": "integer", "minimum": 0},
+            "blocked": {"type": "integer", "minimum": 0}
+          }
+        },
+        "environments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "state", "gate", "detail", "recovery_class"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {"type": "string", "minLength": 1},
+              "state": {"enum": ["clear", "unknown", "blocked"]},
+              "gate": {"oneOf": [{"type": "string"}, {"type": "null"}]},
+              "detail": {"oneOf": [{"type": "string"}, {"type": "null"}]},
+              "recovery_class": {"oneOf": [{"type": "string"}, {"type": "null"}]},
+              "next": {"type": "array", "items": {"type": "string"}}
+            }
+          }
+        }
+      }
+    },
     "saved_report_age": {
       "description": "Present only when a saved report is re-emitted with --from: how old it is.",
       "type": "object",

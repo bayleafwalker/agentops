@@ -45,8 +45,25 @@ def git(cwd: Path, *args: str) -> str:
         return ""
 
 
+EPILOG = """\
+Examples:
+  agentops dispatch run --worker codex --model gpt-6-luna --worktree ../wt-x \\
+      --status-file /tmp/x.json "Outcome and acceptance criteria"
+  agentops dispatch run --dry-run --worker opencode --data-boundary-attested \\
+      --model opencode-go/deepseek-v4.1-flash --worktree ../wt-x --status-file /tmp/x.json "..."
+
+Status file: --status-file receives an agentops-dispatch-run/v1 JSON record, written as
+`running` at launch and replaced atomically with the final record. Fields: schema,
+outcome (running|done|failed|escalated), exit_code, branch, head_sha, dirty,
+final_message_tail, escalation_reason, started_at, ended_at, model, worker.
+Exit status: the worker's own code (0 done or escalated), 2 usage or unusable worker CLI.
+--dry-run checks the worktree, worker CLI and model, prints the command, and starts nothing."""
+
+
 def parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description=__doc__)
+    p = argparse.ArgumentParser(
+        prog="agentops dispatch run", description=__doc__, epilog=EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--worktree", required=True, type=Path)
     p.add_argument("--model", required=True, help="explicit provider model ID (caller validates against model-routing.json)")
     p.add_argument("--status-file", required=True, type=Path)
@@ -54,6 +71,8 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--timeout", type=float, default=3600, help="worker timeout in seconds (default: 3600)")
     p.add_argument("--kill-grace", type=float, default=5, help="seconds to wait after SIGTERM before SIGKILL (default: 5; 0 disables grace; maximum: 300)")
     p.add_argument("--data-boundary-attested", action="store_true", help="attest OpenCode input meets external-provider boundary")
+    p.add_argument("--dry-run", action="store_true",
+                   help="validate worktree, worker CLI and model; print the resolved command; start nothing")
     p.add_argument("prompt", help="bounded worker outcome and acceptance criteria")
     return p
 
@@ -155,6 +174,16 @@ def main(argv: list[str] | None = None) -> int:
     if problem:
         print(f"agentops dispatch run: {problem}", file=sys.stderr)
         return 2
+    if not re.fullmatch(r"[\w.:/@+-]+", args.model):
+        parser().error(f"--model is not a plausible model id: {args.model!r}")
+    if args.dry_run:
+        tail = ["--output-last-message", "<temp file>"] if args.worker == "codex" else []
+        shown = [*command, args.model, *tail, "--", f"<prompt: {len(args.prompt)} chars>"]
+        print(f"dry run: nothing started, no status file written\n  worktree: {worktree} "
+              f"(branch {git(worktree, 'branch', '--show-current') or 'detached'})\n"
+              f"  status:   {status_path}\n  command:  {' '.join(shown)}\n  timeout:  {args.timeout:g}s")
+        print("next: rerun without --dry-run to launch", file=sys.stderr)
+        return 0
     started = now()
     record = {"schema": "agentops-dispatch-run/v1", "outcome": "running", "exit_code": None,
               "branch": git(worktree, "branch", "--show-current"), "head_sha": git(worktree, "rev-parse", "HEAD"),
