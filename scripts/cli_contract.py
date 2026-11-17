@@ -112,9 +112,17 @@ def evaluate(cmd: list[str], args: argparse.Namespace) -> list[Check]:
 
     if args.command:
         sub_help = run(cmd + [args.command, "--help"], env, args.timeout)
-        add("help.subcommand", sub_help.code == 0 and bool(sub_help.out.strip())
+        # The command's own help: not a crash, and not the root map reprinted.
+        word = re.compile(rf"(?<![\w-]){re.escape(args.command)}(?![\w-])")
+        first = next((ln for ln in sub_help.out.splitlines() if ln.strip()), "")
+        usage = [ln for ln in sub_help.out.splitlines() if re.match(r"(?i)\s*usage:", ln)]
+        own = (sub_help.out.strip() != help_text.strip()
+               and any(word.search(ln) for ln in usage + [first]))
+        add("help.subcommand", sub_help.code == 0 and own
             and TRACEBACK not in sub_help.out + sub_help.err,
-            f"`{args.command} --help` -> exit {sub_help.code}; {excerpt(sub_help.err or sub_help.out)}")
+            f"`{args.command} --help` -> exit {sub_help.code}; "
+            + ("same text as root --help; " if sub_help.out.strip() == help_text.strip() else "")
+            + excerpt(sub_help.err or sub_help.out))
         bad = typo_of(args.command)
         assert bad != args.command
         typo = run(cmd + [bad], env, args.timeout)

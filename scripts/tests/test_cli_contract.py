@@ -80,3 +80,13 @@ def test_examples_needs_a_heading_not_a_substring(tmp_path, capsys):
     body = GOOD.replace("Examples:\\n  demo status", "for example run demo status")
     _, results = _run(capsys, _tool(tmp_path, body))
     assert results["help.examples"] == "fail"
+
+
+def test_subcommand_help_must_not_be_the_root_map(tmp_path, capsys):
+    body = GOOD.replace(
+        'print("usage: demo status [--json]"); sys.exit(0)',
+        "print(HELP); sys.exit(0)",
+    )
+    code, results = _run(capsys, _tool(tmp_path, body))
+    assert code == 1
+    assert results["help.subcommand"] == "fail"
