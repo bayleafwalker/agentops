@@ -20,7 +20,7 @@ work there.
 
 ## Tools
 
-- **direnv**: load the project's `.envrc` before `sprintctl`, `kctl`, `kubectl` or `flux`;
+- **direnv**: load the project's `.envrc` before `sprintctl`, `kubectl` or `flux`;
   non-interactively `direnv exec /projects/dev/<repo> <cmd>`.
 - **snip** filters Bash output on the workstation. Need raw output? `snip proxy -- <cmd>`.
 - **Cluster**: the appservice kubeconfig is `/projects/dev/appservice/clusters/.kube/config`
@@ -125,7 +125,6 @@ vuoro `docs/plans/2026-10-14-knowledge-workspace-phase0.md`.
 |---|---|
 | Git | durable, replicated |
 | sprintctl (served) | durable work state |
-| kctl | served for candidate intake/review; publication is Git-owned |
 | auditctl | durable only where `AUDITCTL_ARTIFACTS_ROOT` is a repo (tracked `.envrc`); otherwise host-local |
 | `/projects/dev/_artifacts/` | semi-ephemeral, host-local |
 | `/tmp`, worktrees, scratchpads | ephemeral |

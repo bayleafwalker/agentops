@@ -16,19 +16,29 @@ Implement approved, bounded work using the repo's dispatch packet, manifest, and
 
 ## Steps
 
-1. Confirm the action is implementation-ready: scope, allowed paths, acceptance checks, and verification commands are known.
+1. Confirm the outcome, allowed effects and independently owned acceptance are
+   clear. Own implementation design, decomposition and repair; a prescribed
+   implementation is not a readiness requirement.
 2. Load the repo environment before running repo tools.
 3. Read the dispatch packet and manifest. Respect explicit action routing first, then project defaults, action-class defaults, and global fallback.
 4. Treat reservations as orchestrator-owned. Use item/action context, but do not reserve, reassign, release, or interrupt on your own initiative; the orchestrator owns that operation.
-5. Edit only within the allowed scope. If the needed change crosses the scope boundary, stop and report the required expansion.
+5. Prove the cheap setup, focused check and representative dev entrypoint work
+   before a long implementation loop. Exercise the exact consumer/installer path;
+   distinguish missing prerequisites from code or acceptance failures. Repair
+   environment/tooling faults within scope and report a verified external blocker.
+   Edit only within the allowed scope; escalate real scope/authority expansion.
 6. Run the worker-attempt registered falsifier from the packet. Workers must be
    able to execute their exact granted command IDs; inability to run the
    focused gate is a blocker, not a completion claim.
 7. Apply adversarial acceptance: negative fixtures, wrong-order inputs,
    mutation-sensitive expectations, real calls through the claimed layer, and
    anti-vacuity checks where filters or parity are involved.
-8. Stop rereading unchanged context when the packet's churn limits are reached.
-   Once the diff and focused gate are stable, emit the structured candidate
+   Add ordinary regression tests, and report oracle gaps to the independent
+   acceptance owner. Independent scenario tightening is outside the implementer's
+   allowance; preserve revisions and original failures. Review simplicity across
+   the whole solution rather than optimizing to a line count or retry count.
+8. Use focused references and checkpoints instead of rereading unchanged context
+   without a new concern. Once the diff and focused gate are stable, emit the structured candidate
    handoff immediately; cheap cache writes alone are not a reason to stop.
 9. Record exact verification commands and results for the handoff and for any dispatcher verification hook.
 10. Once the scope is stable, route code-bearing work to `dispatch-review` when the manifest or action packet requires review.
@@ -42,7 +52,8 @@ Implement approved, bounded work using the repo's dispatch packet, manifest, and
 
 ## Do Not
 
-- Do not make design decisions that should have been resolved by `dispatch-plan`.
+- Do not invent product decisions or change accepted interfaces/effect authority.
+  Ordinary design decisions belong to the implementation owner.
 - Do not mutate unrelated files or broaden the scope silently.
 - Do not reserve, reassign, release, or interrupt work from a subagent or worker prompt; reservation changes belong to the orchestrating session.
 - Do not mark work complete without reporting verification status.
