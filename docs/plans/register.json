@@ -834,5 +834,13 @@
     "work_ref": "agentops#2536",
     "successor": null,
     "last_verified": "2026-11-08"
+  },
+  "docs/plans/2026-11-16-resident-memory-and-session.md": {
+    "status": "active",
+    "owner": "agentops",
+    "work_ref": null,
+    "successor": null,
+    "last_verified": "2026-11-16",
+    "justification": "User-authorized implementation; served-work linkage pending workspace binding; host activation remains gated."
   }
 }

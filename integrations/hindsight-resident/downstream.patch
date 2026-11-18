@@ -1,0 +1,2083 @@
+diff --git a/hindsight-docs/docs-integrations/coding-agents.md b/hindsight-docs/docs-integrations/coding-agents.md
+index 8c3a50ab0cb3acc18bcf765da3aab40240b9eec7..8945b441da1b67b9c1085402253fa5110c0230ff 100644
+--- a/hindsight-docs/docs-integrations/coding-agents.md
++++ b/hindsight-docs/docs-integrations/coding-agents.md
+@@ -559,6 +559,48 @@ environment carries over unchanged:
+ Any `HINDSIGHT_API_*` variable you export is forwarded to the daemon, so server-side settings need
+ no equivalent here.
+ 
++## Managed context (resident facade)
++
++Set `managedContext: true` when an external context authority owns injection,
++learning and source checks. The shared hook/runtime then performs no automatic
++recall, page roster/preamble, seed, survey, transcript write-back, package update or
++companion-skill synchronization. OpenCode 2 does not register the companion skill.
++The installer also skips new skill copies; use a dedicated runner profile without
++previously installed Hindsight skills, since this setting does not delete old copies.
++
++The only tool in this mode is `memory_search({query})`. It calls the configured
++facade's `/v1/search` with a fixed `managedScopeId`, using the existing authenticated
++HTTP transport. It sends no bank or caller-supplied scope/tags, refuses redirects,
++and returns the facade's advisory source/provenance envelope without the native page
++guide. Failure returns an explicit unavailable result, with no engine fallback.
++`memory_reflect`, source retrieval and learning writes are not exposed in this version.
++
++```json
++{
++  "managedContext": true,
++  "serverMode": "self-hosted",
++  "apiUrl": "http://127.0.0.1:8787",
++  "apiToken": "REPLACE_WITH_FACADE_READER_TOKEN",
++  "managedScopeId": "resident-world-main",
++  "optInOnly": true,
++  "optInPaths": ["/workspace/resident-world"]
++}
++```
++
++`apiUrl` must be an explicit HTTPS origin, or HTTP on `127.0.0.1`, `localhost` or
++`[::1]`, with no path, query, credentials or fragment. Queries are limited to 4096
++UTF-8 bytes; responses to 64 KiB, 256 entries and 64 source references per entry.
++Missing facade origin, scope, reader token or self-hosted mode exposes no
++tools. A managed configuration has no cloud URL default. Set `managedContext` and
++`managedScopeId` at the top level or in `harnesses.<name>`; bank/path overrides cannot
++change them. Existing project opt-in and native session ownership guards still apply.
++Keep this config outside the agent-writable workspace and restart persistent hosts
++after changes; the facade must enforce the token's scope independently.
++The reused HTTP transport retains the host's global dispatcher, including an
++installed proxy. Fixed origins and refused redirects do not bypass or qualify that
++dispatcher. Commission the runner's dispatcher, environment and OS egress policy
++before giving it even a reader token; this adapter does not establish host isolation.
++
+ ## Configuration
+ 
+ Configuration is **one JSON file**: `~/.hindsight/coding-agent.json`. Layering, later wins per field:
+diff --git a/hindsight-extensions/resident/Dockerfile b/hindsight-extensions/resident/Dockerfile
+new file mode 100644
+index 0000000000000000000000000000000000000000..e2850f90f1c676f3cdda61789cafe15812d919ce
+--- /dev/null
++++ b/hindsight-extensions/resident/Dockerfile
+@@ -0,0 +1,24 @@
++# Build the upstream api-only image from the pinned commit first, then pass its
++# immutable local tag/digest with --build-arg HINDSIGHT_IMAGE=... . No latest fallback.
++ARG HINDSIGHT_IMAGE
++FROM ${HINDSIGHT_IMAGE}
++USER hindsight
++
++COPY hindsight-extensions/resident/hindsight_ext_resident /app/extensions/hindsight_ext_resident
++COPY hindsight-extensions/bank-llm-routing/hindsight_ext_bank_llm_routing /app/extensions/hindsight_ext_bank_llm_routing
++COPY LICENSE /usr/share/licenses/resident-hindsight/LICENSE
++ENV PYTHONPATH=/app/extensions
++ENV HINDSIGHT_API_TENANT_EXTENSION=hindsight_ext_resident:ResidentTenantExtension \
++    HINDSIGHT_API_TENANT_POLICY_FILE=/etc/resident-memory/policy.json \
++    HINDSIGHT_API_OPERATION_VALIDATOR_EXTENSION=hindsight_ext_resident:ResidentOperationValidator \
++    HINDSIGHT_API_OPERATION_VALIDATOR_POLICY_FILE=/etc/resident-memory/policy.json \
++    HINDSIGHT_API_MCP_ENABLED=false \
++    HINDSIGHT_API_ENABLE_BANK_CONFIG_API=false
++
++# The server loads the first .env found above its cwd with override=True. Keep it
++# away from project worktrees; run the container with a read-only root filesystem.
++WORKDIR /opt/resident-service
++COPY hindsight-extensions/resident/trusted.env /opt/resident-service/.env
++RUN /app/api/.venv/bin/python -c "from importlib.metadata import version; assert version('hindsight-api-slim') == '1.2.1'; import hindsight_ext_resident, hindsight_ext_bank_llm_routing"
++
++CMD ["hindsight-api", "--host", "0.0.0.0", "--port", "8888", "--workers", "1"]
+diff --git a/hindsight-extensions/resident/README.md b/hindsight-extensions/resident/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..a446f81b480001f4e0491a0b119c16e626cbddff
+--- /dev/null
++++ b/hindsight-extensions/resident/README.md
+@@ -0,0 +1,161 @@
++# Resident policy extension
++
++Thin downstream integration for Hindsight **v1.2.1**, upstream commit
++`0eb02d8c418eac6b489bc63883c993b2257dfac4`. It adds authenticated principal-to-bank
++permissions through the existing Tenant and OperationValidator interfaces. It does
++not modify the engine, add a second memory store, or expose a new API. The upstream
++MIT license applies; preserve the root `LICENSE` when distributing this source.
++
++The agent talks to an AgentOps facade. That facade derives the bank, source revision,
++tags, and authority from its own verified run context. The agent never receives
++this extension's bearer credentials or chooses its own security scope. Keep the
++API, PostgreSQL, gateway, configuration and credentials outside the model-writable
++workspace. A bearer principal is the facade/service, not a claim supplied by a model.
++
++## Policy contract
++
++Start from `policy.example.json`; the example hashes are unusable placeholders.
++Generate high-entropy service credentials with the host's credential tooling and
++store only their lowercase SHA-256 hashes in the policy. The policy is a protected,
++absolute JSON path, loaded once on process startup. Both API and worker load the
++same version. Unknown settings, unknown operations, duplicate banks, missing scope
++fields and empty tag lists fail startup. Never reload it from an agent worktree.
++
++* Each principal has exact bank IDs and an explicit operation list. No bank or
++  operation wildcards. `read_tags` requires **all** listed tags with upstream
++  `all_strict` matching; caller filters can only narrow the result. `write_tags`
++  uses upstream shell-pattern checks, and every retained item/fact must also carry
++  all required read tags. `null` explicitly grants unrestricted bank scope;
++  omission is an error. For a read-only grant, omit write operations.
++* The operation names are upstream `BankReadOperation` / `BankWriteOperation`
++  values plus the separately dispatched `retain`, `recall`, `reflect`,
++  `consolidate`, `create_bank`, `get_mental_model`, `refresh_mental_model`, and
++  `list_banks` hooks. Mental-model prechecks map to `create_mental_model` /
++  `refresh_mental_model`. The exact closed set is `policy.OPERATIONS`.
++* Tenant authentication stamps a non-secret key ID into queued operations. Its ID
++  changes with the token hash. User-initiated async retain rechecks that identity,
++  bank, operation, item tags and extracted-fact tags in the worker. A removed or
++  rotated key cannot authorize a queued retain after the worker restarts.
++  Upstream internal execution does not re-run every existing-document read-by-ID
++  check if another writer retags that document after enqueue. The facade must use
++  immutable, scope-bound source-revision document IDs and control every writer;
++  this is not a shared untrusted-tenant write service.
++* `internal_grants` is a separate exact bank/operation allowlist for maintenance
++  operations reaching validator hooks. Empty denies those operations. Upstream
++  housekeeping outside these hooks still follows the service settings.
++  Maintenance carrying an originating key also
++  requires that key still exists and still has the bank. The default example
++  grants consolidation plus its nested recall and bank-profile read. User-initiated
++  work cannot use these grants.
++* Hindsight intentionally bypasses tag resolvers for internal work. Consolidation
++  is therefore explicitly **bank-wide**. Use a bank per project/trust boundary;
++  do not mix mutually untrusted projects and treat tag filters as an LLM sandbox.
++  This extension also does not implement source freshness or authority: the
++  facade must resolve/recheck sources and fence stale results before injection.
++
++Bank configuration mutation is denied by the tenant extension as well as disabled
++in service configuration. Scoped callers are additionally refused whole-bank
++operations by the upstream engine. Hooks are a version-pinned defense, not a
++guarantee that every future API route automatically acquires authorization. Keep
++the raw API private and expose a narrow facade allowlist; requalify endpoint and
++method coverage before an upstream upgrade.
++
++## Build and run
++
++Build from this repository root. The first image uses the pinned source checkout;
++capture the resulting image digest and use it for the deployed extension image.
++Upstream's Dockerfile resolves OS packages during build, so the source commit alone
++is not a reproducible OS image. Record the image digest/SBOM as part of the release.
++
++```sh
++docker build -f docker/standalone/Dockerfile --target api-only \
++  --build-arg INCLUDE_LOCAL_MODELS=false --build-arg PRELOAD_ML_MODELS=false \
++  -t resident-hindsight-base:1.2.1 .
++docker build -f hindsight-extensions/resident/Dockerfile \
++  --build-arg HINDSIGHT_IMAGE=resident-hindsight-base:1.2.1 \
++  -t resident-hindsight:1.2.1-policy1 .
++```
++
++Use self-hosted PostgreSQL with pgvector and native full text search. Apply
++migrations in one privileged startup job, then start one API process and one
++standalone worker using the same image, protected policy and common environment:
++
++```sh
++hindsight-admin run-db-migration --schema public
++hindsight-api --host 0.0.0.0 --port 8888 --workers 1
++hindsight-worker --worker-id resident-memory-1 --http-host 0.0.0.0 --http-port 8889
++```
++
++These are three separate process commands, not a shell pipeline. Set
++`HINDSIGHT_API_WORKER_ENABLED=false` **only on the API process**. Start both from
++the image's `/opt/resident-service` working directory: its empty, trusted `.env`
++stops upstream dotenv discovery from overriding host settings. Run the filesystem
++read-only, with only necessary temporary directories writable; mount policy read-only.
++The image selects the upstream non-root `hindsight` user. The runtime UID must be
++able to read policy; require dropped capabilities and no-new-privileges in the host
++deployment. These image defaults do not enforce the host's filesystem or egress
++boundary. Do not mount project directories here.
++The image enables both policy extensions by default, so a missing policy file
++fails startup instead of silently starting an unauthenticated server.
++
++`service.env.example` is a configuration template; replace every placeholder and
++inject secrets from the host. It disables MCP, the control plane (not in this
++image), bank configuration writes, dry-run extraction, file uploads, provider batch
++jobs and autonomous reconciliation/model/page sweeps. Observations remain enabled;
++the supervisor explicitly admits consolidation after budget checks. One of the two
++worker slots is reserved for consolidation, leaving one for retain; the upstream
++default reservation of two would starve retain at a total of two slots.
++
++All LLM **and embedding** requests go through one host-controlled gateway with hard
++budget admission, model allowlists, request size/time limits and no fallback to
++another cloud. The existing `bank-llm-routing` extension rejects unmatched LLM
++bank/schema/provider/model combinations. It does not gate embeddings or enforce a
++budget: gateway admission and network egress policy do that. Allow service egress
++only to PostgreSQL and this gateway, including DNS policy; provide no vendor keys,
++provider fallback members, or per-operation/embedding override environment values.
++Startup LLM verification is skipped because it has no bank and must not bypass the
++route policy. Qualify the configured gateway with a canary before admitting work.
++
++Local embeddings can be introduced as a separate approved service behind the
++same gateway contract. Changing an embedding model/dimension is a data migration
++and reindexing decision, not a silent configuration edit.
++
++## Verification and recovery
++
++```sh
++uv sync --frozen --package hindsight-api-slim --extra embedded-db
++.venv/bin/python -m pytest -q hindsight-extensions/resident/tests \
++  -c hindsight-extensions/resident/pyproject.toml
++uv run --project hindsight-system-tests pytest \
++  hindsight-system-tests/tests/test_resident_extension.py
++scripts/hooks/lint.sh
++```
++
++The blackbox story uses the published client, a real split API/worker deployment,
++embedded PostgreSQL and the upstream deterministic provider stub. It checks denied
++credentials/banks/operations/tags, inaccessible source documents, async retry
++idempotency, completed consolidation and restricted retrieval. Unit tests also
++check every bank hook, policy failure and stale queued credentials. No live provider
++credential is needed. In environments with a SOCKS proxy, install the `socksio`
++optional transport dependency in the API and system-test environments first.
++
++Probe API `/health` on port 8888 and worker `/health` on 8889, then perform a bounded
++canary retain, poll its operation to completion, recall its source and verify a
++forbidden bank request fails. A successful health response alone does not prove
++policy, gateway or memory correctness. The production readiness/admission controller
++must check the applied release/policy digest and budget gate as well.
++
++Revocation is an explicit rollout: pause admission, stop/drain API and worker,
++replace the protected policy on both, restart, and reconcile queued operations.
++Already running provider requests are not magically recalled. Revoke at the gateway
++and stop the worker for an immediate spend fence. Replaying or dropping an operation
++requires a recorded supervisor decision; do not assume a key change deletes data.
++
++Keep PostgreSQL backups/PITR plus full-bank transfer exports. Memory observations,
++mental models and pages contain durable derived knowledge and are not a disposable
++cache. Document export defaults omit observations and knowledge-base content. A
++full-bank export includes current data/config and model/page content; history is
++partly opt-in (mental-model history travels with model data), and observation
++history is omitted. A logical export is not a complete database backup. Quiesce writers
++for consistent logical exports. Roll back the image and policy together, and use a
++compatible database snapshot when migrations are not backward compatible.
+diff --git a/hindsight-extensions/resident/hindsight_ext_resident/__init__.py b/hindsight-extensions/resident/hindsight_ext_resident/__init__.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..6ca394e7d4db7fc10a4ee95b8811f30b719b7aba
+--- /dev/null
++++ b/hindsight-extensions/resident/hindsight_ext_resident/__init__.py
+@@ -0,0 +1,5 @@
++"""Resident identity and bank policy for the pinned Hindsight v1.2.1 server."""
++
++from hindsight_ext_resident.extension import ResidentOperationValidator, ResidentTenantExtension
++
++__all__ = ["ResidentOperationValidator", "ResidentTenantExtension"]
+diff --git a/hindsight-extensions/resident/hindsight_ext_resident/extension.py b/hindsight-extensions/resident/hindsight_ext_resident/extension.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..3b3042053ce1999942f8b48bcf91edd7f3f0ab0b
+--- /dev/null
++++ b/hindsight-extensions/resident/hindsight_ext_resident/extension.py
+@@ -0,0 +1,202 @@
++"""Authentication and default-deny authorization through upstream extension hooks."""
++
++from __future__ import annotations
++
++import logging
++
++from hindsight_api.engine.search.tags import TagGroup, TagGroupLeaf, tags_writable
++from hindsight_api.extensions.operation_validator import (
++    BankListContext,
++    BankListResult,
++    BankListScope,
++    BankReadContext,
++    BankWriteContext,
++    ConsolidateContext,
++    ConsolidationActionsContext,
++    CreateBankContext,
++    ImportContext,
++    MemoryReview,
++    MemoryUpdateContext,
++    MentalModelCandidateContext,
++    MentalModelGetContext,
++    MentalModelRefreshContext,
++    OperationValidationError,
++    OperationValidatorExtension,
++    PrecheckContext,
++    RecallContext,
++    ReflectContext,
++    RetainContext,
++    RetainFactsContext,
++    TagScopeContext,
++    ValidationResult,
++)
++from hindsight_api.extensions.tenant import AuthenticationError, Tenant, TenantContext, TenantExtension
++from hindsight_api.models import RequestContext
++
++from hindsight_ext_resident.policy import BankPermissions, Grant, Principal, load_policy
++
++DENIED = "Resident policy does not permit this operation"
++logger = logging.getLogger(__name__)
++
++
++class ResidentTenantExtension(TenantExtension):
++    """One database schema, authenticated keys, and immutable server-owned config."""
++
++    def __init__(self, config: dict[str, str]) -> None:
++        super().__init__(config)
++        self.policy = load_policy(config)
++
++    async def authenticate(self, context: RequestContext) -> TenantContext:
++        principal = self.policy.principal_for_token(context.api_key) if context.api_key else None
++        if principal is None:
++            raise AuthenticationError("Invalid resident credential")
++        context.api_key_id = principal.key_id
++        context.tenant_id = self.policy.database_schema
++        return TenantContext(schema_name=self.policy.database_schema)
++
++    async def list_tenants(self) -> list[Tenant]:
++        return [Tenant(schema=self.policy.database_schema, tenant_id=self.policy.database_schema)]
++
++    async def get_allowed_config_fields(self, context: RequestContext, bank_id: str) -> set[str]:
++        return set()
++
++
++class ResidentOperationValidator(OperationValidatorExtension):
++    """Apply the same bank permissions to HTTP requests and identifiable queued work.
++
++    Hindsight bypasses tag resolvers for internal work. User-initiated queued retain
++    therefore repeats tag checks here and in the extracted-fact hook. Background
++    consolidation is explicitly bank-wide and separately granted. Use a separate
++    bank for each trust boundary; tags do not sandbox an LLM processing that bank.
++    """
++
++    def __init__(self, config: dict[str, str]) -> None:
++        super().__init__(config)
++        self.policy = load_policy(config)
++
++    def _principal(self, context: RequestContext) -> Principal:
++        principal = self.policy.principal_for_key(context.api_key_id)
++        if context.tenant_id != self.policy.database_schema or principal is None:
++            raise OperationValidationError(DENIED)
++        return principal
++
++    def _permissions(self, bank: str, context: RequestContext) -> BankPermissions:
++        if context.internal and not context.user_initiated:
++            if context.tenant_id != self.policy.database_schema:
++                raise OperationValidationError(DENIED)
++            # An originating credential, when present, must still exist and still
++            # have this bank. Maintenance sweeps have no originating credential.
++            if context.api_key_id is not None and self._principal(context).grant_for(bank) is None:
++                raise OperationValidationError(DENIED)
++            permissions = next((grant for grant in self.policy.internal_grants if grant.bank == bank), None)
++        else:
++            permissions = self._principal(context).grant_for(bank)
++        if permissions is None:
++            raise OperationValidationError(DENIED)
++        return permissions
++
++    def _allow(self, bank: str, operation: str, context: RequestContext) -> ValidationResult:
++        try:
++            permissions = self._permissions(bank, context)
++            if operation not in permissions.operations:
++                raise OperationValidationError(DENIED)
++        except OperationValidationError:
++            logger.info(
++                "resident_policy_denied operation=%r bank=%r key_id=%r internal=%s user_initiated=%s",
++                operation,
++                bank,
++                context.api_key_id,
++                context.internal,
++                context.user_initiated,
++            )
++            raise
++        return ValidationResult.accept()
++
++    def _check_tags(self, bank: str, context: RequestContext, tags: list[str] | None) -> None:
++        permissions = self._permissions(bank, context)
++        if not isinstance(permissions, Grant):
++            return
++        if not tags_writable(tags, permissions.write_tags):
++            raise OperationValidationError("Resident policy does not permit these write tags")
++        if permissions.read_tags is not None and not set(permissions.read_tags).issubset(tags or []):
++            raise OperationValidationError("Resident writes must carry every required scope tag")
++
++    async def precheck(self, ctx: PrecheckContext) -> ValidationResult:
++        operation = {
++            "mental_model_create": "create_mental_model",
++            "mental_model_refresh": "refresh_mental_model",
++        }.get(ctx.operation, ctx.operation)
++        # This hook runs in a FastAPI dependency, outside the engine's domain-error
++        # mapping. Its contract is a rejected result, not a raised domain exception.
++        try:
++            return self._allow(ctx.bank_id, operation, ctx.request_context)
++        except OperationValidationError:
++            return ValidationResult.reject(DENIED)
++
++    async def validate_retain(self, ctx: RetainContext) -> ValidationResult:
++        result = self._allow(ctx.bank_id, "retain", ctx.request_context)
++        for item in ctx.contents:
++            self._check_tags(ctx.bank_id, ctx.request_context, item.get("tags"))
++        return result
++
++    async def filter_retain_facts(self, ctx: RetainFactsContext) -> list[MemoryReview] | None:
++        self._allow(ctx.bank_id, "retain", ctx.request_context)
++        for fact in ctx.facts:
++            self._check_tags(ctx.bank_id, ctx.request_context, fact.tags)
++        return None
++
++    async def validate_recall(self, ctx: RecallContext) -> ValidationResult:
++        return self._allow(ctx.bank_id, "recall", ctx.request_context)
++
++    async def validate_reflect(self, ctx: ReflectContext) -> ValidationResult:
++        return self._allow(ctx.bank_id, "reflect", ctx.request_context)
++
++    async def validate_consolidate(self, ctx: ConsolidateContext) -> ValidationResult:
++        return self._allow(ctx.bank_id, "consolidate", ctx.request_context)
++
++    async def filter_consolidation_actions(self, ctx: ConsolidationActionsContext) -> list[MemoryReview] | None:
++        self._allow(ctx.bank_id, "consolidate", ctx.request_context)
++        return None
++
++    async def validate_bank_read(self, ctx: BankReadContext) -> ValidationResult:
++        return self._allow(ctx.bank_id, ctx.operation, ctx.request_context)
++
++    async def validate_bank_write(self, ctx: BankWriteContext) -> ValidationResult:
++        return self._allow(ctx.bank_id, ctx.operation, ctx.request_context)
++
++    async def validate_create_bank(self, ctx: CreateBankContext) -> ValidationResult:
++        return self._allow(ctx.bank_id, "create_bank", ctx.request_context)
++
++    async def validate_import(self, ctx: ImportContext) -> ValidationResult:
++        return self._allow(ctx.bank_id, "import_documents", ctx.request_context)
++
++    async def validate_mental_model_get(self, ctx: MentalModelGetContext) -> ValidationResult:
++        return self._allow(ctx.bank_id, "get_mental_model", ctx.request_context)
++
++    async def validate_mental_model_refresh(self, ctx: MentalModelRefreshContext) -> ValidationResult:
++        operation = "create_mental_model" if ctx.mental_model_id is None else "refresh_mental_model"
++        return self._allow(ctx.bank_id, operation, ctx.request_context)
++
++    async def validate_mental_model_candidate(self, ctx: MentalModelCandidateContext) -> ValidationResult:
++        return self._allow(ctx.bank_id, "refresh_mental_model", ctx.request_context)
++
++    async def validate_memory_update(self, ctx: MemoryUpdateContext) -> ValidationResult:
++        return self._allow(ctx.bank_id, "update_memory_unit", ctx.request_context)
++
++    async def resolve_tag_scope(self, ctx: TagScopeContext) -> list[TagGroup] | None:
++        permissions = self._permissions(ctx.bank_id, ctx.request_context)
++        if isinstance(permissions, Grant) and permissions.read_tags is not None:
++            return [TagGroupLeaf(tags=permissions.read_tags, match="all_strict")]
++        return None
++
++    async def resolve_write_tag_scope(self, ctx: TagScopeContext) -> list[str] | None:
++        permissions = self._permissions(ctx.bank_id, ctx.request_context)
++        return permissions.write_tags if isinstance(permissions, Grant) else None
++
++    async def bank_list_scope(self, request_context: RequestContext) -> BankListScope:
++        principal = self._principal(request_context)
++        return BankListScope(bank_ids=[grant.bank for grant in principal.grants if "list_banks" in grant.operations])
++
++    async def filter_bank_list(self, ctx: BankListContext) -> BankListResult:
++        scope = await self.bank_list_scope(ctx.request_context)
++        return BankListResult(banks=[bank for bank in ctx.banks if bank.get("bank_id") in (scope.bank_ids or [])])
+diff --git a/hindsight-extensions/resident/hindsight_ext_resident/policy.py b/hindsight-extensions/resident/hindsight_ext_resident/policy.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..05b9719990dbc48c881df030ae99976faf04b2c6
+--- /dev/null
++++ b/hindsight-extensions/resident/hindsight_ext_resident/policy.py
+@@ -0,0 +1,135 @@
++"""Small, closed policy loaded once from a supervisor-owned file.
++
++The file is configuration, never model output. Bank ids are exact; only writable
++tag patterns use shell matching, matching Hindsight's own write-scope contract.
++"""
++
++from __future__ import annotations
++
++import hashlib
++import hmac
++from pathlib import Path
++from typing import Annotated, Literal
++
++from hindsight_api.extensions.operation_validator import BankReadOperation, BankWriteOperation, PrecheckOperation
++from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
++
++Identifier = Annotated[str, Field(min_length=1, max_length=128, pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$")]
++
++# These names are the pinned upstream bank hooks plus the separately dispatched
++# hooks below. An upstream upgrade that adds an operation must be reviewed before
++# this extension grants it. There is deliberately no wildcard permission.
++OPERATIONS = frozenset(
++    {op.value for op in BankReadOperation}
++    | {op.value for op in BankWriteOperation}
++    | {op.value for op in PrecheckOperation}
++    | {"create_bank", "consolidate", "get_mental_model", "refresh_mental_model", "list_banks"}
++)
++
++
++class ClosedModel(BaseModel):
++    model_config = ConfigDict(extra="forbid", frozen=True)
++
++
++class BankPermissions(ClosedModel):
++    bank: Identifier
++    operations: list[str] = Field(min_length=1)
++
++    @field_validator("operations")
++    @classmethod
++    def known_operations(cls, value: list[str]) -> list[str]:
++        if len(value) != len(set(value)) or any(operation not in OPERATIONS for operation in value):
++            raise ValueError("operations must be unique, explicitly supported operation names")
++        return value
++
++
++class Grant(BankPermissions):
++    # Both are REQUIRED. null is an explicit whole-bank grant; omission is an error.
++    read_tags: list[str] | None
++    write_tags: list[str] | None
++
++    @field_validator("read_tags", "write_tags")
++    @classmethod
++    def valid_tags(cls, value: list[str] | None) -> list[str] | None:
++        if value is not None and (
++            not value or len(value) != len(set(value)) or any(not tag or tag != tag.strip() for tag in value)
++        ):
++            raise ValueError("use nonempty unique tags, or explicit null for unrestricted access")
++        return value
++
++    @field_validator("read_tags")
++    @classmethod
++    def exact_read_tags(cls, value: list[str] | None) -> list[str] | None:
++        if value is not None and any(any(char in tag for char in "*?[]") for tag in value):
++            raise ValueError("read_tags must be exact tags, not patterns")
++        return value
++
++
++class Principal(ClosedModel):
++    id: Identifier
++    token_sha256: str = Field(pattern=r"^[0-9a-f]{64}$", repr=False)
++    grants: list[Grant] = Field(min_length=1)
++
++    @model_validator(mode="after")
++    def unique_banks(self) -> Principal:
++        if len({grant.bank for grant in self.grants}) != len(self.grants):
++            raise ValueError("a principal must have exactly one grant per bank")
++        return self
++
++    @property
++    def key_id(self) -> str:
++        # Persisted on queued operations instead of the credential. Rotation makes
++        # a different id, so old queued user work is refused after a restart.
++        return f"resident:{self.token_sha256[:32]}"
++
++    def grant_for(self, bank: str) -> Grant | None:
++        return next((grant for grant in self.grants if grant.bank == bank), None)
++
++
++class ResidentPolicy(ClosedModel):
++    schema_version: Literal[1]
++    database_schema: str = Field(pattern=r"^[a-z_][a-z0-9_]{0,62}$")
++    principals: list[Principal] = Field(min_length=1)
++    # Explicit whole-bank engine maintenance. Empty disables it. These grants do
++    # not allow a queued user request to exceed the submitting principal's rights.
++    internal_grants: list[BankPermissions]
++
++    @model_validator(mode="after")
++    def unique_identities(self) -> ResidentPolicy:
++        for values in (
++            [principal.id for principal in self.principals],
++            [principal.token_sha256 for principal in self.principals],
++            [principal.key_id for principal in self.principals],
++            [grant.bank for grant in self.internal_grants],
++        ):
++            if len(values) != len(set(values)):
++                raise ValueError("policy identities, credentials and internal banks must be unique")
++        allowed_banks = {grant.bank for principal in self.principals for grant in principal.grants}
++        if any(grant.bank not in allowed_banks for grant in self.internal_grants):
++            raise ValueError("internal banks must also be declared in a principal grant")
++        return self
++
++    def principal_for_token(self, token: str) -> Principal | None:
++        digest = hashlib.sha256(token.encode()).hexdigest()
++        matched = None
++        # Always compare the whole policy, without logging the credential or digest.
++        for principal in self.principals:
++            if hmac.compare_digest(digest, principal.token_sha256):
++                matched = principal
++        return matched
++
++    def principal_for_key(self, key_id: str | None) -> Principal | None:
++        return next((principal for principal in self.principals if principal.key_id == key_id), None)
++
++
++def load_policy(config: dict[str, str]) -> ResidentPolicy:
++    """Fail startup for missing/unknown config without echoing secrets in errors."""
++    if set(config) != {"policy_file"}:
++        raise ValueError("resident extension requires exactly policy_file configuration")
++    path = Path(config["policy_file"])
++    if not path.is_absolute():
++        raise ValueError("resident policy_file must be an absolute protected path")
++    try:
++        return ResidentPolicy.model_validate_json(path.read_text(encoding="utf-8"))
++    except (OSError, ValidationError):
++        raise ValueError("resident policy is unreadable or invalid; validate the protected policy file") from None
+diff --git a/hindsight-extensions/resident/policy.example.json b/hindsight-extensions/resident/policy.example.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..1e99c492b4f59a6324ed07af404592886937b033
+--- /dev/null
++++ b/hindsight-extensions/resident/policy.example.json
+@@ -0,0 +1,40 @@
++{
++  "schema_version": 1,
++  "database_schema": "public",
++  "principals": [
++    {
++      "id": "agentops-facade",
++      "token_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
++      "grants": [
++        {
++          "bank": "resident-story",
++          "operations": [
++            "retain", "recall", "get_bank_profile", "get_operation_status"
++          ],
++          "read_tags": ["resident:r01", "project:story", "branch:main"],
++          "write_tags": ["resident:r01", "project:story", "branch:main"]
++        }
++      ]
++    },
++    {
++      "id": "supervisor",
++      "token_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
++      "grants": [
++        {
++          "bank": "resident-story",
++          "operations": [
++            "create_bank", "update_bank", "get_bank_profile", "list_banks",
++            "get_bank_stats", "get_operation_status", "list_operations",
++            "run_consolidation", "submit_async_consolidation", "consolidate",
++            "delete_document", "update_memory_unit"
++          ],
++          "read_tags": null,
++          "write_tags": null
++        }
++      ]
++    }
++  ],
++  "internal_grants": [
++    {"bank": "resident-story", "operations": ["consolidate", "recall", "get_bank_profile"]}
++  ]
++}
+diff --git a/hindsight-extensions/resident/pyproject.toml b/hindsight-extensions/resident/pyproject.toml
+new file mode 100644
+index 0000000000000000000000000000000000000000..eaa9fa87cb4abee2c236e9683ddd41ce210c9584
+--- /dev/null
++++ b/hindsight-extensions/resident/pyproject.toml
+@@ -0,0 +1,26 @@
++[project]
++name = "hindsight-ext-resident"
++version = "0.1.0"
++license = "MIT"
++requires-python = ">=3.11"
++dependencies = ["hindsight-api-slim==1.2.1", "pytest>=7", "pytest-asyncio>=0.21"]
++
++[tool.uv]
++package = false
++
++[tool.uv.sources]
++hindsight-api-slim = { path = "../../hindsight-api-slim", editable = true }
++
++[tool.pytest.ini_options]
++testpaths = ["tests"]
++pythonpath = ["."]
++asyncio_mode = "auto"
++asyncio_default_fixture_loop_scope = "function"
++
++[tool.ruff]
++line-length = 120
++target-version = "py311"
++
++[tool.ruff.lint]
++select = ["E", "W", "F", "I"]
++ignore = ["E501"]
+diff --git a/hindsight-extensions/resident/service.env.example b/hindsight-extensions/resident/service.env.example
+new file mode 100644
+index 0000000000000000000000000000000000000000..e0ce3e5118d6f4812c9febef3944e4b9c3e1565f
+--- /dev/null
++++ b/hindsight-extensions/resident/service.env.example
+@@ -0,0 +1,57 @@
++# Common API + worker configuration. Replace placeholders through protected host
++# credentials. Do not put this file in the model-writable project directory.
++HINDSIGHT_API_DATABASE_URL=postgresql://hindsight:CHANGE_ME@postgres:5432/hindsight
++HINDSIGHT_API_DATABASE_SCHEMA=public
++HINDSIGHT_API_VECTOR_EXTENSION=pgvector
++HINDSIGHT_API_TEXT_SEARCH_EXTENSION=native
++HINDSIGHT_API_RUN_MIGRATIONS_ON_STARTUP=false
++
++HINDSIGHT_API_TENANT_EXTENSION=hindsight_ext_resident:ResidentTenantExtension
++HINDSIGHT_API_TENANT_POLICY_FILE=/etc/resident-memory/policy.json
++HINDSIGHT_API_OPERATION_VALIDATOR_EXTENSION=hindsight_ext_resident:ResidentOperationValidator
++HINDSIGHT_API_OPERATION_VALIDATOR_POLICY_FILE=/etc/resident-memory/policy.json
++
++# A single gateway owns hard budget admission for LLM AND embedding requests.
++# No direct vendor keys, per-operation overrides, or fallback members in the host.
++HINDSIGHT_API_LLM_PROVIDER=openai
++HINDSIGHT_API_LLM_BASE_URL=http://model-gateway:8080/v1
++HINDSIGHT_API_LLM_MODEL=REPLACE_WITH_GATEWAY_LLM_ALIAS
++HINDSIGHT_API_LLM_API_KEY=REPLACE_WITH_GATEWAY_CREDENTIAL
++HINDSIGHT_API_LLM_REQUEST_EXTENSION=hindsight_ext_bank_llm_routing:BankLLMRoutingExtension
++HINDSIGHT_API_LLM_REQUEST_ROUTES=[{"bank":"resident-story","schema":"public","provider":"openai","model":"REPLACE_WITH_GATEWAY_LLM_ALIAS"}]
++HINDSIGHT_API_LLM_REQUEST_UNMATCHED=deny
++HINDSIGHT_API_SKIP_LLM_VERIFICATION=true
++HINDSIGHT_API_EMBEDDINGS_PROVIDER=openai
++HINDSIGHT_API_EMBEDDINGS_OPENAI_BASE_URL=http://model-gateway:8080/v1
++HINDSIGHT_API_EMBEDDINGS_OPENAI_MODEL=REPLACE_WITH_GATEWAY_EMBEDDING_ALIAS
++HINDSIGHT_API_EMBEDDINGS_OPENAI_API_KEY=REPLACE_WITH_GATEWAY_CREDENTIAL
++HINDSIGHT_API_RERANKER_PROVIDER=rrf
++HINDSIGHT_API_DECISION_MODEL_PROVIDER=none
++
++# The supervisor schedules consolidation after budget admission. No autonomous
++# reconciliation/model/page sweeps. Observations remain enabled and durable.
++HINDSIGHT_API_ENABLE_OBSERVATIONS=true
++HINDSIGHT_API_ENABLE_AUTO_CONSOLIDATION=false
++HINDSIGHT_API_CONSOLIDATION_RECONCILE_INTERVAL_SECONDS=0
++HINDSIGHT_API_MENTAL_MODEL_REFRESH_TICK_SECONDS=0
++HINDSIGHT_API_PAGE_DEFAULT_TRIGGER={"refresh_after_consolidation":false}
++HINDSIGHT_API_RETAIN_BATCH_ENABLED=false
++
++HINDSIGHT_API_MCP_ENABLED=false
++HINDSIGHT_API_ENABLE_BANK_CONFIG_API=false
++HINDSIGHT_API_ENABLE_BANK_LLM_HEALTH=false
++HINDSIGHT_API_ENABLE_DRY_RUN_EXTRACT=false
++HINDSIGHT_API_ENABLE_FILE_UPLOAD_API=false
++HINDSIGHT_API_STORE_DOCUMENT_TEXT=true
++HINDSIGHT_API_FAIL_ON_EXTRACTION_ERRORS=true
++HINDSIGHT_API_LLM_TRACE_ENABLED=false
++HINDSIGHT_API_OTEL_TRACES_ENABLED=false
++HINDSIGHT_API_LLM_MAX_CONCURRENT=2
++HINDSIGHT_API_LLM_MAX_RETRIES=1
++HINDSIGHT_API_EMBEDDINGS_MAX_CONCURRENT_REQUESTS=2
++HINDSIGHT_API_EMBEDDINGS_MAX_RETRIES=1
++HINDSIGHT_API_CONSOLIDATION_LLM_PARALLELISM=1
++HINDSIGHT_API_WORKER_MAX_SLOTS=2
++HINDSIGHT_API_WORKER_CONSOLIDATION_RESERVED_SLOTS=1
++HINDSIGHT_API_WORKER_MAX_RETRIES=2
++# Set HINDSIGHT_API_WORKER_ENABLED=false on the API process only.
+diff --git a/hindsight-extensions/resident/tests/test_resident_policy.py b/hindsight-extensions/resident/tests/test_resident_policy.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..0dd1a0b305b8f1b0b4224dc52f625d07a4b85222
+--- /dev/null
++++ b/hindsight-extensions/resident/tests/test_resident_policy.py
+@@ -0,0 +1,203 @@
++"""Contract checks at the extension boundary; API composition has its own system story."""
++
++from __future__ import annotations
++
++import hashlib
++import json
++from dataclasses import dataclass
++from pathlib import Path
++
++import pytest
++from hindsight_api.extensions.operation_validator import (
++    BankReadContext,
++    BankReadOperation,
++    BankWriteContext,
++    BankWriteOperation,
++    ConsolidateContext,
++    OperationValidationError,
++    PrecheckContext,
++    PrecheckOperation,
++    RecallContext,
++    RetainContext,
++    RetainFactsContext,
++    ReviewedFact,
++    TagScopeContext,
++)
++from hindsight_api.extensions.tenant import AuthenticationError
++from hindsight_api.models import RequestContext
++
++from hindsight_ext_resident import ResidentOperationValidator, ResidentTenantExtension
++from hindsight_ext_resident.policy import load_policy
++
++BANK = "resident-world"
++TOKEN = "test-only-high-entropy-credential-00000000000000000000000000000000"
++
++
++@dataclass
++class Extensions:
++    path: Path
++    tenant: ResidentTenantExtension
++    validator: ResidentOperationValidator
++
++    async def context(self, **kwargs: object) -> RequestContext:
++        context = RequestContext(api_key=TOKEN, **kwargs)
++        await self.tenant.authenticate(context)
++        return context
++
++
++@pytest.fixture
++def extensions(tmp_path: Path) -> Extensions:
++    policy = {
++        "schema_version": 1,
++        "database_schema": "public",
++        "principals": [
++            {
++                "id": "facade",
++                "token_sha256": hashlib.sha256(TOKEN.encode()).hexdigest(),
++                "grants": [
++                    {
++                        "bank": BANK,
++                        "operations": ["retain", "recall", "get_document", "list_banks"],
++                        "read_tags": ["project:world", "scope:published"],
++                        "write_tags": ["project:world", "scope:published", "topic:*"],
++                    }
++                ],
++            }
++        ],
++        "internal_grants": [{"bank": BANK, "operations": ["consolidate"]}],
++    }
++    path = tmp_path / "policy.json"
++    path.write_text(json.dumps(policy))
++    config = {"policy_file": str(path)}
++    return Extensions(path, ResidentTenantExtension(config), ResidentOperationValidator(config))
++
++
++@pytest.mark.parametrize("credential", [None, "", "invalid", TOKEN + "x"])
++async def test_authentication_rejects_missing_or_wrong_credentials(
++    extensions: Extensions, credential: str | None
++) -> None:
++    with pytest.raises(AuthenticationError):
++        await extensions.tenant.authenticate(RequestContext(api_key=credential))
++
++
++async def test_authentication_records_nonsecret_rotating_identity(extensions: Extensions) -> None:
++    context = await extensions.context()
++    assert context.tenant_id == "public"
++    assert context.api_key_id == extensions.tenant.policy.principals[0].key_id
++    assert TOKEN not in context.api_key_id
++    assert await extensions.tenant.get_allowed_config_fields(context, BANK) == set()
++    assert [tenant.schema for tenant in await extensions.tenant.list_tenants()] == ["public"]
++
++
++async def test_exact_bank_and_operation_permissions_and_strict_scopes(extensions: Extensions) -> None:
++    context = await extensions.context()
++    assert (await extensions.validator.validate_recall(RecallContext(BANK, "world", context))).allowed
++    with pytest.raises(OperationValidationError):
++        await extensions.validator.validate_recall(RecallContext(BANK + "-other", "world", context))
++    with pytest.raises(OperationValidationError):
++        await extensions.validator.validate_recall(RecallContext(BANK, "world", RequestContext(api_key=TOKEN)))
++    scope = await extensions.validator.resolve_tag_scope(TagScopeContext(BANK, context))
++    assert scope is not None and len(scope) == 1
++    assert scope[0].model_dump() == {
++        "tags": ["project:world", "scope:published"],
++        "match": "all_strict",
++        "resolve": "exact",
++    }
++    assert await extensions.validator.resolve_write_tag_scope(TagScopeContext(BANK, context)) == [
++        "project:world",
++        "scope:published",
++        "topic:*",
++    ]
++    assert (await extensions.validator.bank_list_scope(context)).bank_ids == [BANK]
++
++
++async def test_precheck_uses_rejection_result_for_dependency_error_mapping(extensions: Extensions) -> None:
++    result = await extensions.validator.precheck(
++        PrecheckContext(PrecheckOperation.RECALL, "forbidden-bank", await extensions.context())
++    )
++    assert not result.allowed and result.status_code == 403
++
++
++@pytest.mark.parametrize("operation", list(BankReadOperation))
++async def test_every_bank_read_hook_is_closed_by_default(extensions: Extensions, operation: BankReadOperation) -> None:
++    context = await extensions.context()
++    call = extensions.validator.validate_bank_read(BankReadContext(BANK, operation, context))
++    if operation == BankReadOperation.GET_DOCUMENT:
++        assert (await call).allowed
++    else:
++        with pytest.raises(OperationValidationError):
++            await call
++
++
++@pytest.mark.parametrize("operation", list(BankWriteOperation))
++async def test_every_bank_write_hook_is_closed_by_default(
++    extensions: Extensions, operation: BankWriteOperation
++) -> None:
++    with pytest.raises(OperationValidationError):
++        await extensions.validator.validate_bank_write(BankWriteContext(BANK, operation, await extensions.context()))
++
++
++@pytest.mark.parametrize("tags", [None, [], ["project:world"], ["project:world", "scope:published", "private:other"]])
++@pytest.mark.parametrize("queued", [False, True])
++async def test_scope_cannot_be_widened_or_omitted_on_retain(
++    extensions: Extensions, tags: list[str] | None, queued: bool
++) -> None:
++    context = await extensions.context(internal=queued, user_initiated=queued)
++    with pytest.raises(OperationValidationError):
++        await extensions.validator.validate_retain(RetainContext(BANK, [{"content": "note", "tags": tags}], context))
++
++
++async def test_queued_retain_checks_extracted_tags_and_current_identity(extensions: Extensions) -> None:
++    context = await extensions.context(internal=True, user_initiated=True)
++    tags = ["project:world", "scope:published", "topic:harbor"]
++    assert (await extensions.validator.validate_retain(RetainContext(BANK, [{"tags": tags}], context))).allowed
++    with pytest.raises(OperationValidationError):
++        await extensions.validator.filter_retain_facts(
++            RetainFactsContext(BANK, "doc-1", context, [ReviewedFact("leak", "world", [*tags, "private:other"], [])])
++        )
++    replacement = json.loads(extensions.path.read_text())
++    replacement["principals"][0]["token_sha256"] = hashlib.sha256(b"rotated-test-credential").hexdigest()
++    extensions.path.write_text(json.dumps(replacement))
++    restarted = ResidentOperationValidator({"policy_file": str(extensions.path)})
++    with pytest.raises(OperationValidationError):
++        await restarted.validate_retain(RetainContext(BANK, [{"tags": tags}], context))
++
++
++async def test_internal_is_not_a_permission_bypass(extensions: Extensions) -> None:
++    maintenance = RequestContext(internal=True, tenant_id="public")
++    assert (await extensions.validator.validate_consolidate(ConsolidateContext(BANK, maintenance))).allowed
++    with pytest.raises(OperationValidationError):
++        await extensions.validator.validate_recall(RecallContext(BANK, "everything", maintenance))
++    with pytest.raises(OperationValidationError):
++        await extensions.validator.validate_consolidate(ConsolidateContext("other", maintenance))
++    with pytest.raises(OperationValidationError):
++        await extensions.validator.validate_consolidate(ConsolidateContext(BANK, RequestContext(internal=True)))
++    maintenance.api_key_id = "revoked-key"
++    with pytest.raises(OperationValidationError):
++        await extensions.validator.validate_consolidate(ConsolidateContext(BANK, maintenance))
++
++
++@pytest.mark.parametrize(
++    "bad_field,bad_value", [("operations", ["*"]), ("read_tags", []), ("read_tags", ["project:*"])]
++)
++def test_invalid_policy_never_becomes_an_unrestricted_grant(
++    extensions: Extensions, bad_field: str, bad_value: object
++) -> None:
++    data = json.loads(extensions.path.read_text())
++    data["principals"][0]["grants"][0][bad_field] = bad_value
++    extensions.path.write_text(json.dumps(data))
++    with pytest.raises(ValueError, match="invalid") as error:
++        load_policy({"policy_file": str(extensions.path)})
++    assert data["principals"][0]["token_sha256"] not in str(error.value)
++
++
++def test_omitted_scope_and_unknown_settings_fail_startup(extensions: Extensions) -> None:
++    data = json.loads(extensions.path.read_text())
++    del data["principals"][0]["grants"][0]["read_tags"]
++    extensions.path.write_text(json.dumps(data))
++    with pytest.raises(ValueError):
++        load_policy({"policy_file": str(extensions.path)})
++    with pytest.raises(ValueError):
++        load_policy({"policy_file": str(extensions.path), "allow_all": "true"})
++    with pytest.raises(ValueError):
++        load_policy({"policy_file": "relative.json"})
+diff --git a/hindsight-extensions/resident/tests/test_service_config.py b/hindsight-extensions/resident/tests/test_service_config.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..32df2259af5f25bf8bad4c6bd1a016339a1c4381
+--- /dev/null
++++ b/hindsight-extensions/resident/tests/test_service_config.py
+@@ -0,0 +1,51 @@
++"""The deployment template uses real knobs from the pinned server, with bounded workers."""
++
++from __future__ import annotations
++
++import os
++from pathlib import Path
++
++import pytest
++from hindsight_api import config as server_config
++
++from hindsight_ext_resident.policy import load_policy
++
++EXTENSION_DIR = Path(__file__).resolve().parents[1]
++
++
++def test_example_policy_and_service_configuration_are_valid(monkeypatch: pytest.MonkeyPatch) -> None:
++    policy = load_policy({"policy_file": str(EXTENSION_DIR / "policy.example.json")})
++    assert policy.database_schema == "public"
++    for name in list(os.environ):
++        if name.startswith("HINDSIGHT_API_"):
++            monkeypatch.delenv(name)
++    known_names = {
++        value for name, value in vars(server_config).items() if name.startswith("ENV_") and isinstance(value, str)
++    }
++    extension_names = {
++        "HINDSIGHT_API_TENANT_EXTENSION",
++        "HINDSIGHT_API_TENANT_POLICY_FILE",
++        "HINDSIGHT_API_OPERATION_VALIDATOR_EXTENSION",
++        "HINDSIGHT_API_OPERATION_VALIDATOR_POLICY_FILE",
++        "HINDSIGHT_API_LLM_REQUEST_EXTENSION",
++        "HINDSIGHT_API_LLM_REQUEST_ROUTES",
++        "HINDSIGHT_API_LLM_REQUEST_UNMATCHED",
++        "HINDSIGHT_API_WORKER_CONSOLIDATION_RESERVED_SLOTS",
++    }
++    for line in (EXTENSION_DIR / "service.env.example").read_text().splitlines():
++        if not line or line.startswith("#"):
++            continue
++        key, value = line.split("=", 1)
++        assert key in known_names | extension_names, f"unknown pinned-server setting: {key}"
++        monkeypatch.setenv(key, value)
++    config = server_config.HindsightConfig.from_env()
++    assert config.database_schema == policy.database_schema
++    assert config.worker_max_slots == 2
++    assert config.worker_slot_reservations["consolidation"] == 1
++    assert not config.enable_auto_consolidation
++    assert not config.enable_bank_config_api
++    assert not config.mcp_enabled
++    assert config.consolidation_reconcile_interval_seconds == 0
++    assert config.mental_model_refresh_tick_seconds == 0
++    assert config.page_default_trigger == {"refresh_after_consolidation": False}
++    assert config.reranker_provider == "rrf"
+diff --git a/hindsight-extensions/resident/trusted.env b/hindsight-extensions/resident/trusted.env
+new file mode 100644
+index 0000000000000000000000000000000000000000..ed40ff40c316aaaac029e32642c28116d3b4a8ec
+--- /dev/null
++++ b/hindsight-extensions/resident/trusted.env
+@@ -0,0 +1,2 @@
++# Intentionally empty. This root-owned file stops dotenv's upward search.
++# Service settings arrive from the host, never the agent's project directory.
+diff --git a/hindsight-integrations/coding-agents/README.md b/hindsight-integrations/coding-agents/README.md
+index 9122d22efc995c2ee195fbc2bb2b8b1267aa3070..672d641fdd7c6b5db9f0f98fcb57fc45cc1e92c3 100644
+--- a/hindsight-integrations/coding-agents/README.md
++++ b/hindsight-integrations/coding-agents/README.md
+@@ -556,6 +556,48 @@ no equivalent here.
+ 
+ <!-- skill:end -->
+ 
++## Managed context (resident facade)
++
++Set `managedContext: true` when an external context authority owns injection,
++learning and source checks. The shared hook/runtime then performs no automatic
++recall, page roster/preamble, seed, survey, transcript write-back, package update or
++companion-skill synchronization. OpenCode 2 does not register the companion skill.
++The installer also skips new skill copies; use a dedicated runner profile without
++previously installed Hindsight skills, since this setting does not delete old copies.
++
++The only tool in this mode is `memory_search({query})`. It calls the configured
++facade's `/v1/search` with a fixed `managedScopeId`, using the existing authenticated
++HTTP transport. It sends no bank or caller-supplied scope/tags, refuses redirects,
++and returns the facade's advisory source/provenance envelope without the native page
++guide. Failure returns an explicit unavailable result, with no engine fallback.
++`memory_reflect`, source retrieval and learning writes are not exposed in this version.
++
++```json
++{
++  "managedContext": true,
++  "serverMode": "self-hosted",
++  "apiUrl": "http://127.0.0.1:8787",
++  "apiToken": "REPLACE_WITH_FACADE_READER_TOKEN",
++  "managedScopeId": "resident-world-main",
++  "optInOnly": true,
++  "optInPaths": ["/workspace/resident-world"]
++}
++```
++
++`apiUrl` must be an explicit HTTPS origin, or HTTP on `127.0.0.1`, `localhost` or
++`[::1]`, with no path, query, credentials or fragment. Queries are limited to 4096
++UTF-8 bytes; responses to 64 KiB, 256 entries and 64 source references per entry.
++Missing facade origin, scope, reader token or self-hosted mode exposes no
++tools. A managed configuration has no cloud URL default. Set `managedContext` and
++`managedScopeId` at the top level or in `harnesses.<name>`; bank/path overrides cannot
++change them. Existing project opt-in and native session ownership guards still apply.
++Keep this config outside the agent-writable workspace and restart persistent hosts
++after changes; the facade must enforce the token's scope independently.
++The reused HTTP transport retains the host's global dispatcher, including an
++installed proxy. Fixed origins and refused redirects do not bypass or qualify that
++dispatcher. Commission the runner's dispatcher, environment and OS egress policy
++before giving it even a reader token; this adapter does not establish host isolation.
++
+ <!-- skill:begin -->
+ 
+ ## Configuration
+diff --git a/hindsight-integrations/coding-agents/src/core/config.ts b/hindsight-integrations/coding-agents/src/core/config.ts
+index 3e2a8187baa25df787e12a7c25d62bd40bac3f85..a9b7ef637818e0a035f9ee4bbb01a1b661b72459 100644
+--- a/hindsight-integrations/coding-agents/src/core/config.ts
++++ b/hindsight-integrations/coding-agents/src/core/config.ts
+@@ -93,6 +93,12 @@ export interface RawConfig {
+   optInPaths?: string[];
+   harness?: string; // runtime adapter (default "opencode")
+   disabled?: boolean; // hard off-switch — inert plugin, for a no-memory baseline (default false)
++  /** An external context authority owns retrieval, injection and learning. No automatic
++   *  Hindsight lifecycle, companion skill, or raw Hindsight tools run in this mode. */
++  managedContext?: boolean;
++  /** Fixed facade scope for managedContext. Requires an explicit self-hosted apiUrl origin
++   *  and reader apiToken; the sole memory_search tool never accepts caller scope/bank/tags. */
++  managedScopeId?: string;
+   /** Session transcript write-back (default true; set false to opt out). Honored by every
+    *  harness: the hook harnesses' Stop write-back and the persistent plugins' per-turn
+    *  cadence alike. Gates ONLY the transcript — recall, git ingest, seeding and the memory
+@@ -322,6 +328,8 @@ export interface Config {
+   optInPaths: string[];
+   harness: string;
+   disabled: boolean;
++  managedContext: boolean;
++  managedScopeId?: string;
+   retainSessions: boolean;
+   maxParallelRetains: number;
+   reflectTimeoutMs: number;
+@@ -600,7 +608,7 @@ export function resolveConfig(raw: RawConfig = {}): Config {
+     apiUrl:
+       serverMode === "daemon"
+         ? `http://127.0.0.1:${apiPort}`
+-        : (raw.apiUrl ?? "https://api.hindsight.vectorize.io"),
++        : (raw.apiUrl ?? (raw.managedContext ? "" : "https://api.hindsight.vectorize.io")),
+     apiToken: raw.apiToken || undefined,
+     apiPort,
+     daemonIdleTimeout: raw.daemonIdleTimeout,
+@@ -619,6 +627,11 @@ export function resolveConfig(raw: RawConfig = {}): Config {
+       : [],
+     harness: raw.harness ?? "opencode",
+     disabled: raw.disabled ?? false,
++    managedContext: raw.managedContext === true,
++    managedScopeId:
++      typeof raw.managedScopeId === "string" && raw.managedScopeId.trim()
++        ? raw.managedScopeId.trim()
++        : undefined,
+     retainSessions: raw.retainSessions ?? true, // write sessions back by default, every harness
+     manageBankConfig: raw.manageBankConfig ?? true,
+     retainExtractionMode: RETAIN_EXTRACTION_MODES.includes(raw.retainExtractionMode!)
+@@ -771,6 +784,8 @@ const ENV_KEYS = {
+   optInPaths: "HINDSIGHT_OPT_IN_PATHS",
+   harness: "HINDSIGHT_HARNESS",
+   disabled: "HINDSIGHT_DISABLED",
++  managedContext: "HINDSIGHT_MANAGED_CONTEXT",
++  managedScopeId: "HINDSIGHT_MANAGED_SCOPE_ID",
+   retainSessions: "HINDSIGHT_RETAIN_SESSIONS",
+   maxParallelRetains: "HINDSIGHT_MAX_PARALLEL_RETAINS",
+   reflectTimeoutMs: "HINDSIGHT_REFLECT_TIMEOUT_MS",
+@@ -809,6 +824,7 @@ const ENV_BOOLEANS = new Set<keyof RawConfig>([
+   "resolveWorktrees",
+   "optInOnly",
+   "disabled",
++  "managedContext",
+   "retainSessions",
+   "autoReflect",
+   "autoSeed",
+@@ -877,6 +893,10 @@ export function loadConfig(opts: LoadOptions | string = {}): Config {
+ /** Bank-resolution fields are meaningless inside a `banks.<id>` section (they can't change the id
+  *  that selected it) — strip them so a typo there can't silently re-route memory. */
+ const BANK_OVERRIDE_EXCLUDED = [
++  // Managed mode is a host/context-owner decision, never a late bank override:
++  // session-start housekeeping runs before bank resolution.
++  "managedContext",
++  "managedScopeId",
+   "bankId",
+   "bankIdTemplate",
+   "mapPathToBank",
+diff --git a/hindsight-integrations/coding-agents/src/core/hindsight.ts b/hindsight-integrations/coding-agents/src/core/hindsight.ts
+index bbfa12a6a91aa4a2699c4f3b65fc5efa2e8d259d..65a16c9d6a6a12879e3fb4abf7886b5f490f9f26 100644
+--- a/hindsight-integrations/coding-agents/src/core/hindsight.ts
++++ b/hindsight-integrations/coding-agents/src/core/hindsight.ts
+@@ -482,7 +482,8 @@ export class HindsightClient {
+     url: string,
+     body?: unknown,
+     tolerate: number[] = [],
+-    timeoutMs = 15_000
++    timeoutMs = 15_000,
++    redirect: RequestRedirect = "follow"
+   ): Promise<Response> {
+     // Hard cap on EVERY request: a stalled server (pool deadlock, network) must degrade to a
+     // memoryless turn — never hang a host that awaits us (opencode blocks its BOOT on plugin init).
+@@ -493,6 +494,7 @@ export class HindsightClient {
+         method,
+         body: payload,
+         signal: AbortSignal.timeout(timeoutMs),
++        redirect,
+       });
+       if (r.status !== 429 || tolerate.includes(429)) break;
+       const asked = retryAfterMs(r.headers.get("retry-after"));
+diff --git a/hindsight-integrations/coding-agents/src/core/hook.test.ts b/hindsight-integrations/coding-agents/src/core/hook.test.ts
+index b1305276fc30e14d90acb94f8ab3bab66acfe600..e2e7d8d99ae645ee079dadb561b8b6cec02f42a1 100644
+--- a/hindsight-integrations/coding-agents/src/core/hook.test.ts
++++ b/hindsight-integrations/coding-agents/src/core/hook.test.ts
+@@ -62,6 +62,19 @@ function makeClient(
+ }
+ 
+ describe("buildHookOutput", () => {
++  it("managed context emits no roster, guide or retrieval and never writes a hook cache", async () => {
++    const client = makeClient();
++    const out = await buildHookOutput({
++      harness: "codex",
++      prompt: "harbor",
++      cfg: resolveConfig({ managedContext: true }),
++      client,
++      cacheFile,
++    });
++    expect(out).toEqual({ pages: [] });
++    expect(existsSync(cacheFile)).toBe(false);
++    for (const method of Object.values(client)) expect(method).not.toHaveBeenCalled();
++  });
+   it("turn 1: injects the reflect answer wrapped in the system-injection preamble", async () => {
+     const cfg = resolveConfig({});
+     const client = makeClient();
+diff --git a/hindsight-integrations/coding-agents/src/core/hook.ts b/hindsight-integrations/coding-agents/src/core/hook.ts
+index 48a5edca9cd399e2943916a8f4c82381501d3e76..b602f84556d1ee41493c0697613f1b2665c21491 100644
+--- a/hindsight-integrations/coding-agents/src/core/hook.ts
++++ b/hindsight-integrations/coding-agents/src/core/hook.ts
+@@ -238,6 +238,7 @@ export async function buildHookOutput(args: {
+   cacheFile: string;
+ }): Promise<HookOutput> {
+   const { harness, prompt, cfg, client, cacheFile } = args;
++  if (cfg.managedContext) return { pages: [] };
+ 
+   const cached = readSessionCache(cacheFile);
+   const turns = (cached.turns ?? 0) + 1;
+@@ -433,6 +434,9 @@ export async function runHook(
+   if (!ev) return;
+   if (spec.accept && !spec.accept(ev)) return;
+   const { prompt: rawPrompt, cwd: rawCwd, sessionId } = spec.parse(ev);
++  // Also guard the deferred tool-hook path, before it could emit stale context
++  // queued by a previous unmanaged process.
++  if (loadConfig({ harness: spec.harness }).managedContext) return;
+   if (spec.toolHook?.accept(ev)) {
+     // Runs on every tool call, so it does nothing but hand over what a prompt hook stashed.
+     const pending = sessionId ? takePendingContext(spec.harness, sessionId) : undefined;
+@@ -449,7 +453,7 @@ export async function runHook(
+ 
+   let cfg = loadConfig({ harness: spec.harness });
+   setLogLevel(cfg.logLevel);
+-  if (cfg.disabled) {
++  if (cfg.disabled || cfg.managedContext) {
+     log.debug(spec.harness, "hook skipped: disabled");
+     return;
+   }
+@@ -471,7 +475,7 @@ export async function runHook(
+   const resolved = applyBankConfig(cfg, derived, cwd);
+   cfg = resolved.cfg;
+   const bankId = resolved.bankId;
+-  if (cfg.disabled) {
++  if (cfg.disabled || cfg.managedContext) {
+     log.debug(spec.harness, "hook skipped: bank disabled via banks override", { bank: bankId });
+     return;
+   }
+diff --git a/hindsight-integrations/coding-agents/src/core/managed-tools.test.ts b/hindsight-integrations/coding-agents/src/core/managed-tools.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..32e56275879295c2569f2f17b0900b392e2a05ff
+--- /dev/null
++++ b/hindsight-integrations/coding-agents/src/core/managed-tools.test.ts
+@@ -0,0 +1,149 @@
++import { afterEach, describe, expect, it, vi } from "vitest";
++import { buildManagedTools } from "./managed-tools";
++import { HindsightClient } from "./hindsight";
++import { readEnvConfig, resolveConfig } from "./config";
++import { selectTools } from "../mcp-server";
++
++const config = {
++  managedContext: true,
++  serverMode: "self-hosted" as const,
++  apiUrl: "https://memory.example.test",
++  apiToken: "reader-test-token",
++  managedScopeId: "resident-world-main",
++};
++const scope = { resident: "resident", project: "world", branch: "main" };
++const result = {
++  schema: "resident-memory-results/v1",
++  scope,
++  state: "available",
++  authorizes_effects: false,
++  entries: [
++    {
++      id: "memory-1",
++      content: "The harbor closes at sunset.",
++      status: "advisory",
++      scope,
++      source_refs: [{ source_id: "chapter-1", revision: "rev-1", sha256: "a".repeat(64) }],
++    },
++  ],
++  omissions: [],
++  ingestion: { state: "current" },
++};
++
++function client(apiUrl = config.apiUrl): HindsightClient {
++  return new HindsightClient({ apiUrl, apiToken: config.apiToken, bank: "unused-managed-bank" });
++}
++
++afterEach(() => vi.unstubAllGlobals());
++
++describe("managed context facade tools", () => {
++  it("publishes only memory_search and preserves the advisory envelope using the existing transport", async () => {
++    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify(result), { status: 200 }));
++    vi.stubGlobal("fetch", fetch);
++    const cfg = resolveConfig(config);
++    const tools = selectTools(cfg, client(), "raw-bank-must-never-be-sent");
++    expect(tools.map((tool) => tool.name)).toEqual(["memory_search"]);
++    const out = await tools[0].handler({ query: "harbor hours" });
++    expect(out.isError).toBeUndefined();
++    expect(JSON.parse(out.content[0].text)).toEqual(result);
++    expect(fetch).toHaveBeenCalledTimes(1);
++    const [url, request] = fetch.mock.calls[0];
++    expect(url).toBe("https://memory.example.test/v1/search");
++    expect(request.method).toBe("POST");
++    expect(request.redirect).toBe("error");
++    expect(request.headers.Authorization).toBe("Bearer reader-test-token");
++    expect(JSON.parse(request.body)).toEqual({
++      scope_id: "resident-world-main",
++      query: "harbor hours",
++    });
++  });
++
++  it.each([
++    { apiUrl: undefined },
++    { managedScopeId: undefined },
++    { apiToken: undefined },
++    { serverMode: "cloud" as const },
++    { apiUrl: "http://memory.example.test" },
++    { apiUrl: "https://memory.example.test/path" },
++    { apiUrl: "https://reader:password@memory.example.test" },
++    { disabled: true },
++  ])("exposes no tools for incomplete or unsafe facade config: %j", (patch) => {
++    const cfg = resolveConfig({ ...config, ...patch });
++    expect(buildManagedTools(client(), cfg)).toEqual([]);
++  });
++
++  it("rejects caller scope, bank, URL and tag fields before any request", async () => {
++    const fetch = vi.fn();
++    vi.stubGlobal("fetch", fetch);
++    const [tool] = buildManagedTools(client(), resolveConfig(config));
++    for (const extra of [
++      { scope_id: "other" },
++      { bank: "other" },
++      { tags: ["private"] },
++      { url: "https://other.test" },
++    ]) {
++      const out = await tool.handler({ query: "harbor", ...extra });
++      expect(out.isError).toBe(true);
++      expect(JSON.parse(out.content[0].text).state).toBe("unavailable");
++    }
++    expect(fetch).not.toHaveBeenCalled();
++  });
++
++  it("bounds UTF-8 query bytes before a request and response bytes while reading", async () => {
++    const fetch = vi.fn().mockResolvedValue(new Response("x".repeat(65537)));
++    vi.stubGlobal("fetch", fetch);
++    const [tool] = buildManagedTools(client(), resolveConfig(config));
++    expect((await tool.handler({ query: "猫".repeat(1366) })).isError).toBe(true);
++    expect(fetch).not.toHaveBeenCalled();
++    expect((await tool.handler({ query: "harbor" })).isError).toBe(true);
++    expect(fetch).toHaveBeenCalledTimes(1);
++  });
++
++  it.each(["http://127.0.0.1:8787", "http://localhost:8787", "http://[::1]:8787"])(
++    "permits a loopback HTTP facade at %s",
++    (apiUrl) => {
++      expect(buildManagedTools(client(apiUrl), resolveConfig({ ...config, apiUrl }))).toHaveLength(
++        1
++      );
++    }
++  );
++
++  it.each([401, 403, 404, 429, 503])(
++    "returns unavailable on HTTP %s without retry or raw-engine fallback",
++    async (status) => {
++      const fetch = vi.fn().mockResolvedValue(new Response("private upstream detail", { status }));
++      vi.stubGlobal("fetch", fetch);
++      const [tool] = buildManagedTools(client(), resolveConfig(config));
++      const out = await tool.handler({ query: "harbor" });
++      expect(out.isError).toBe(true);
++      expect(JSON.parse(out.content[0].text).state).toBe("unavailable");
++      expect(out.content[0].text).not.toContain("private upstream detail");
++      expect(fetch).toHaveBeenCalledTimes(1);
++    }
++  );
++
++  it.each([
++    { ...result, authorizes_effects: true },
++    { ...result, schema: "raw-hindsight-recall" },
++    { ...result, entries: [{ ...result.entries[0], source_refs: [] }] },
++    { ...result, entries: [{ ...result.entries[0], scope: { ...scope, project: "foreign" } }] },
++    { ...result, entries: [{ ...result.entries[0], id: "x".repeat(257) }] },
++    {
++      ...result,
++      entries: [
++        { ...result.entries[0], source_refs: Array(65).fill(result.entries[0].source_refs[0]) },
++      ],
++    },
++  ])("does not turn a malformed or authority-bearing response into usable memory", async (body) => {
++    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(body))));
++    const [tool] = buildManagedTools(client(), resolveConfig(config));
++    expect((await tool.handler({ query: "harbor" })).isError).toBe(true);
++  });
++
++  it("accepts environment configuration while withholding a cloud default", () => {
++    expect(
++      readEnvConfig({ HINDSIGHT_MANAGED_CONTEXT: "true", HINDSIGHT_MANAGED_SCOPE_ID: "scope-1" })
++    ).toEqual({ managedContext: true, managedScopeId: "scope-1" });
++    expect(resolveConfig({ managedContext: true }).apiUrl).toBe("");
++  });
++});
+diff --git a/hindsight-integrations/coding-agents/src/core/managed-tools.ts b/hindsight-integrations/coding-agents/src/core/managed-tools.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..23b7aef0e55cfc4ebeb357d2c269883ff9b5d95e
+--- /dev/null
++++ b/hindsight-integrations/coding-agents/src/core/managed-tools.ts
+@@ -0,0 +1,186 @@
++/** The resident facade's explicitly approved tool surface. No raw engine fallback. */
++import { z } from "zod";
++import type { Config } from "./config";
++import type { HindsightClient } from "./hindsight";
++import type { ToolResult, ToolSpec } from "./page-tools";
++
++const MAX_RESPONSE_BYTES = 64 * 1024;
++// Keep HTTP error bodies out of the generic transport's unbounded error formatter.
++// 429 in this set also suppresses its automatic backoff/retry loop.
++const ERROR_STATUSES = Array.from({ length: 200 }, (_, index) => 400 + index);
++const input = z
++  .object({
++    query: z
++      .string()
++      .trim()
++      .min(1)
++      .refine((query) => Buffer.byteLength(query, "utf8") <= 4096),
++  })
++  .strict();
++const identifier = z.string().min(1).max(256);
++const scope = z.object({ resident: identifier, project: identifier, branch: identifier });
++const envelope = z
++  .object({
++    schema: z.literal("resident-memory-results/v1"),
++    scope,
++    state: z.enum(["available", "unavailable", "truncated"]),
++    authorizes_effects: z.literal(false),
++    entries: z
++      .array(
++        z.object({
++          id: identifier,
++          content: z.string(),
++          source_refs: z
++            .array(
++              z.object({
++                source_id: identifier,
++                revision: identifier,
++                sha256: z.string().regex(/^[a-f0-9]{64}$/),
++              })
++            )
++            .min(1)
++            .max(64),
++          status: z.literal("advisory"),
++          scope,
++        })
++      )
++      .max(256),
++    omissions: z.unknown(),
++    ingestion: z.unknown(),
++  })
++  .superRefine((value, context) => {
++    for (const entry of value.entries) {
++      if (
++        entry.scope.resident !== value.scope.resident ||
++        entry.scope.project !== value.scope.project ||
++        entry.scope.branch !== value.scope.branch
++      ) {
++        context.addIssue({ code: "custom", message: "Memory entry crosses response scope" });
++      }
++    }
++  });
++
++function unavailable(): ToolResult {
++  return {
++    isError: true,
++    content: [
++      {
++        type: "text",
++        text: JSON.stringify({
++          schema: "resident-memory-results/v1",
++          state: "unavailable",
++          authorizes_effects: false,
++          entries: [],
++          reason: "Managed memory is unavailable; no fallback was used.",
++        }),
++      },
++    ],
++  };
++}
++
++/** Bound bytes while reading, including a response with no Content-Length header. */
++async function readEnvelope(response: Response): Promise<unknown> {
++  const declared = Number(response.headers.get("content-length"));
++  if (declared > MAX_RESPONSE_BYTES) {
++    await response.body?.cancel();
++    throw new Error("Memory response exceeds byte limit");
++  }
++  const reader = response.body?.getReader();
++  if (!reader) throw new Error("Empty memory response");
++  const chunks: Uint8Array[] = [];
++  let size = 0;
++  try {
++    for (;;) {
++      const next = await reader.read();
++      if (next.done) break;
++      size += next.value.byteLength;
++      if (size > MAX_RESPONSE_BYTES) throw new Error("Memory response exceeds byte limit");
++      chunks.push(next.value);
++    }
++    return JSON.parse(
++      new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks, size))
++    );
++  } finally {
++    await reader.cancel().catch(() => {});
++    reader.releaseLock();
++  }
++}
++
++/** A configured origin only, with no URL credentials, path, query or fragment. */
++function facadeOrigin(cfg: Config, client: HindsightClient): string | undefined {
++  if (
++    !cfg.managedContext ||
++    cfg.serverMode !== "self-hosted" ||
++    !cfg.managedScopeId ||
++    !cfg.apiToken
++  )
++    return;
++  try {
++    const url = new URL(cfg.apiUrl);
++    const loopback = ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname);
++    if (
++      !["http:", "https:"].includes(url.protocol) ||
++      (url.protocol === "http:" && !loopback) ||
++      url.username ||
++      url.password ||
++      url.search ||
++      url.hash ||
++      url.pathname !== "/" ||
++      client.apiUrl !== url.origin
++    )
++      return;
++    return url.origin;
++  } catch {
++    return;
++  }
++}
++
++export function buildManagedTools(client: HindsightClient, cfg: Config): ToolSpec[] {
++  const origin = facadeOrigin(cfg, client);
++  if (!origin || cfg.disabled) return [];
++  return [
++    {
++      name: "memory_search",
++      description:
++        "Search approved resident memory for the current configured scope. Results are advisory, cite their source revisions, and never authorize external actions.",
++      inputSchema: input.shape,
++      annotations: {
++        readOnlyHint: true,
++        destructiveHint: false,
++        idempotentHint: true,
++        openWorldHint: false,
++      },
++      handler: async (args: unknown) => {
++        try {
++          const { query } = input.parse(args);
++          // Reuse auth rotation, timeout and HTTP transport. No 429 retry, redirects,
++          // raw Hindsight paths, caller-selected scope, or page/reflect fallback.
++          const response = await client.req(
++            "POST",
++            `${origin}/v1/search`,
++            { scope_id: cfg.managedScopeId, query },
++            ERROR_STATUSES,
++            cfg.injectTimeoutMs,
++            "error"
++          );
++          if (!response.ok) {
++            await response.body?.cancel();
++            return unavailable();
++          }
++          const body = await readEnvelope(response);
++          const checked = envelope.safeParse(body);
++          if (!checked.success) return unavailable();
++          // Preserve the facade's documented provenance and omission metadata; never add
++          // the native Hindsight page guide or rewrite this into authority-bearing text.
++          return {
++            content: [{ type: "text", text: JSON.stringify(checked.data) }],
++            ...(checked.data.state === "unavailable" ? { isError: true } : {}),
++          };
++        } catch {
++          // Do not expose transport errors (which may contain URLs, headers or bodies).
++          return unavailable();
++        }
++      },
++    },
++  ];
++}
+diff --git a/hindsight-integrations/coding-agents/src/core/retain-hook.ts b/hindsight-integrations/coding-agents/src/core/retain-hook.ts
+index 0507e5ec4d80e64cb2a24ecc7873fc7a02de73f6..52009742c31e0e90d85dd7d781d57a11943fe0bd 100644
+--- a/hindsight-integrations/coding-agents/src/core/retain-hook.ts
++++ b/hindsight-integrations/coding-agents/src/core/retain-hook.ts
+@@ -199,7 +199,7 @@ export async function runRetainHook(
+ 
+   let cfg = loadConfig({ harness: spec.harness });
+   setLogLevel(cfg.logLevel);
+-  if (cfg.disabled) return;
++  if (cfg.disabled || cfg.managedContext) return;
+ 
+   // A journal harness closes the turn HERE, at the first point past the kill switch: the host's
+   // copy of the reply is ephemeral (ZCode deletes its Stop transcript the moment this hook
+@@ -225,7 +225,7 @@ export async function runRetainHook(
+   const resolved = applyBankConfig(cfg, derived, cwd);
+   cfg = resolved.cfg;
+   const bankId = resolved.bankId;
+-  if (cfg.disabled) return; // per-bank opt-out (banks.<id> override)
++  if (cfg.disabled || cfg.managedContext) return; // per-bank opt-out or managed context
+   // Checked only HERE, after the bank is resolved, so a `banks.<id>` section can turn write-back
+   // back on for one repo under a global `retainSessions: false` (and vice versa). Before the
+   // daemon start below: a session that writes nothing has no reason to bring a server up. It still
+diff --git a/hindsight-integrations/coding-agents/src/core/runtime.test.ts b/hindsight-integrations/coding-agents/src/core/runtime.test.ts
+index f799203e3023222235281cfed8bf81982a2b5e44..d350b5845f214e4c76300209bd9a0c2fb3146e76 100644
+--- a/hindsight-integrations/coding-agents/src/core/runtime.test.ts
++++ b/hindsight-integrations/coding-agents/src/core/runtime.test.ts
+@@ -30,6 +30,32 @@ vi.mock("./session-start", async (importOriginal) => {
+ });
+ 
+ describe("RuntimeCore", () => {
++  it("managed context performs no automatic reads, injection, skill/daemon setup or transcript writes", async () => {
++    const client = {
++      listDocumentIds: vi.fn(),
++      listPages: vi.fn(),
++      reflect: vi.fn(),
++      retain: vi.fn(),
++    } as unknown as HindsightClient;
++    const runtime = new RuntimeCore(client, "unused", resolveConfig({ managedContext: true }));
++    const fetchTranscript = vi.fn();
++    runtime.setTranscriptSource(fetchTranscript);
++    daemonSpy.mockClear();
++    await runtime.seedIfCold("/repo");
++    await runtime.onPrompt("managed-session", "harbor hours");
++    await runtime.onTranscript(
++      "managed-session",
++      [{ role: "user", content: "harbor hours" }],
++      true
++    );
++    await runtime.onSessionIdle("managed-session");
++    expect(runtime.getInjection("managed-session")).toBeUndefined();
++    expect(runtime.writeBackEnabled).toBe(false);
++    expect(runtime.toolSpecs()).toEqual([]);
++    expect(daemonSpy).not.toHaveBeenCalled();
++    expect(fetchTranscript).not.toHaveBeenCalled();
++    for (const method of Object.values(client)) expect(method).not.toHaveBeenCalled();
++  });
+   it("uses the shared prompt lifecycle and consumes the new-bank reflect deferral once", async () => {
+     const client = {
+       listDocumentIds: vi.fn(async () => new Set(["git:existing"])),
+diff --git a/hindsight-integrations/coding-agents/src/core/runtime.ts b/hindsight-integrations/coding-agents/src/core/runtime.ts
+index 8a89fd795820c060f1eb7f0007a08c73c37b1129..ca253f39aef3b6d879e5d1b43a21f0dc8fbfbae4 100644
+--- a/hindsight-integrations/coding-agents/src/core/runtime.ts
++++ b/hindsight-integrations/coding-agents/src/core/runtime.ts
+@@ -24,6 +24,7 @@ import { describeError, log, setLogLevel } from "./log";
+ import type { HindsightClient } from "./hindsight";
+ import { buildPagesPreamble } from "./page-injection";
+ import { buildPageTools, type ToolSpec } from "./page-tools";
++import { buildManagedTools } from "./managed-tools";
+ import { buildPageTrigger } from "./missions";
+ import { retainLiveSession, type TransportTurn } from "./chat";
+ import { memoryCursorStore } from "./retain-cursor";
+@@ -87,6 +88,7 @@ export class RuntimeCore {
+ 
+   /** The hindsight_* page + recall tools, bound to this bank, for the harness to register natively. */
+   toolSpecs(): ToolSpec[] {
++    if (this.cfg.managedContext) return buildManagedTools(this.client, this.cfg);
+     return buildPageTools(this.client, this.bankId, {
+       repoDir: this.projectDir,
+       harness: this.harness,
+@@ -104,7 +106,11 @@ export class RuntimeCore {
+   }
+ 
+   get writeBackEnabled(): boolean {
+-    return this.cfg.retainSessions;
++    return !this.cfg.managedContext && this.cfg.retainSessions;
++  }
++
++  get managedContext(): boolean {
++    return this.cfg.managedContext;
+   }
+ 
+   /**
+@@ -117,6 +123,7 @@ export class RuntimeCore {
+    * the first — `onPrompt` builds its own from the session's live page list (#4607).
+    */
+   async seedIfCold(repoPath: string | undefined): Promise<void> {
++    if (this.cfg.managedContext) return;
+     // Anti-recursion: a headless survey session runs the agent (which loads this plugin) with
+     // HINDSIGHT_DISABLE_HOOKS=1 — the tools stay registered (toolSpecs, so the survey can ingest),
+     // but seeding/recall/write-back must no-op or the survey would re-seed itself (see core/survey.ts).
+@@ -166,6 +173,7 @@ export class RuntimeCore {
+    * identical across hosts while this adapter retains only delivery-specific state.
+    */
+   async onPrompt(sessionId: string | undefined, rawPrompt: string): Promise<void> {
++    if (this.cfg.managedContext) return;
+     if (process.env.HINDSIGHT_DISABLE_HOOKS) return; // anti-recursion (see seedIfCold)
+     if (!sessionId) return;
+     // Same cleaning as the hook harnesses' runHook: a host's tagged block ahead of the user's
+@@ -262,6 +270,7 @@ export class RuntimeCore {
+      *  a wrong default records every turn one late and never the session's last. */
+     lastTurnComplete: boolean
+   ): Promise<void> {
++    if (this.cfg.managedContext) return;
+     if (process.env.HINDSIGHT_DISABLE_HOOKS) return; // anti-recursion (see seedIfCold)
+     if (!sessionId || !turns.length) return;
+     // Usage is a local file, so it is recorded whether or not write-back is on (#5391).
+@@ -284,6 +293,7 @@ export class RuntimeCore {
+    * turn must not wait for a threshold it will never reach.
+    */
+   async onSessionIdle(sessionId: string): Promise<void> {
++    if (this.cfg.managedContext) return;
+     if (process.env.HINDSIGHT_DISABLE_HOOKS) return; // anti-recursion (see seedIfCold)
+     if (!sessionId || !this.fetchTranscript) return;
+     let turns: TransportTurn[];
+diff --git a/hindsight-integrations/coding-agents/src/core/session-start.test.ts b/hindsight-integrations/coding-agents/src/core/session-start.test.ts
+index 60808115ab0d364ce9c248cd7038422489b1e4dd..12bfbfd1c30678d3ade6413e6b77e01695ec6369 100644
+--- a/hindsight-integrations/coding-agents/src/core/session-start.test.ts
++++ b/hindsight-integrations/coding-agents/src/core/session-start.test.ts
+@@ -38,6 +38,25 @@ vi.mock("./config", async (importOriginal) => {
+ const listPagesOk = async () => ({ items: [{ id: "p1", name: "Component map" }] });
+ 
+ describe("buildSessionStartContext", () => {
++  it("managed context skips page roster, seed, survey and legacy guidance", async () => {
++    const client = { listDocumentIds: vi.fn(), listPages: vi.fn() };
++    const startSeed = vi.fn();
++    const startSurvey = vi.fn();
++    expect(
++      await buildSessionStartContext({
++        cwd: "/repo",
++        bankId: "unused",
++        cfg: resolveConfig({ managedContext: true }),
++        client,
++        startSeed,
++        startSurvey,
++      })
++    ).toEqual({});
++    expect(client.listDocumentIds).not.toHaveBeenCalled();
++    expect(client.listPages).not.toHaveBeenCalled();
++    expect(startSeed).not.toHaveBeenCalled();
++    expect(startSurvey).not.toHaveBeenCalled();
++  });
+   it("warns in the user-visible banner when the old Claude Code plugin is still active", async () => {
+     const client = { listDocumentIds: async () => new Set(["git:a"]), listPages: listPagesOk };
+     const detectLegacyPlugin = vi.fn().mockReturnValue("hindsight-memory@hindsight");
+diff --git a/hindsight-integrations/coding-agents/src/core/session-start.ts b/hindsight-integrations/coding-agents/src/core/session-start.ts
+index dbc2f9b29088f1991220606f964ae42dda57bab5..5fecd5e8010b404314576c3db849f08942cf8eca 100644
+--- a/hindsight-integrations/coding-agents/src/core/session-start.ts
++++ b/hindsight-integrations/coding-agents/src/core/session-start.ts
+@@ -179,6 +179,7 @@ export async function buildSessionStartContext(args: {
+   detectLegacyPlugin?: (cwd: string) => string | undefined;
+ }): Promise<SessionStartOutput> {
+   const { cwd, bankId, cfg, client, stateDir } = args;
++  if (cfg.managedContext) return {};
+   const t0 = Date.now();
+   let cold: boolean | undefined; // undefined = not checked (autoSeed off / non-git / unreachable)
+   let gitDocIds: Set<string> | undefined; // the cold-check's doc set, reused by the banner's git note
+@@ -412,6 +413,7 @@ export async function runSessionStartHook(
+ 
+     let cfg = loadConfig({ harness });
+     setLogLevel(cfg.logLevel);
++    if (cfg.managedContext) return;
+     syncCompanionSkill(harness); // keep the installed skill current with the package version
+     if (cfg.disabled) return;
+     // …and keep the package itself current. AFTER the disabled check, unlike the skill sync above:
+@@ -429,7 +431,7 @@ export async function runSessionStartHook(
+     const resolved = applyBankConfig(cfg, derived, cwd);
+     cfg = resolved.cfg;
+     const bankId = resolved.bankId;
+-    if (cfg.disabled) return; // per-bank opt-out (banks.<id> override)
++    if (cfg.disabled || cfg.managedContext) return; // per-bank opt-out or managed context
+     // Memory is live HERE — the one point where registering the host's per-repo MCP access is
+     // correct: the caller of an opt-out repo must not gain a config file it never asked for.
+     const mcpHint = spec.ensureMcpRegistration?.(cwd);
+diff --git a/hindsight-integrations/coding-agents/src/harness/opencode.ts b/hindsight-integrations/coding-agents/src/harness/opencode.ts
+index cd6b7cd3f126bb8e89a4a9e3cd3c2a087e12598c..1eb89788b55d72f934be5a642920a2aa10f1c0c6 100644
+--- a/hindsight-integrations/coding-agents/src/harness/opencode.ts
++++ b/hindsight-integrations/coding-agents/src/harness/opencode.ts
+@@ -100,7 +100,7 @@ function createRuntime(core: RuntimeCore) {
+   for (const spec of core.toolSpecs()) tools[spec.name] = toOpencodeTool(spec);
+ 
+   return {
+-    ...surveyAgentHook,
++    ...(core.managedContext ? {} : surveyAgentHook),
+     tool: tools,
+     // Each user turn: recall on the prompt, then add this turn's injection (recalled memories +
+     // attribution/user-feedback framing, plus the pages preamble on turn 1 and the roster
+diff --git a/hindsight-integrations/coding-agents/src/harness/opencode2.test.ts b/hindsight-integrations/coding-agents/src/harness/opencode2.test.ts
+index cfc85f821abfccfdf3faa9b1c405db7a492ccf5d..f6ddaac2cf94fba4a8a85bcac35a1d965828b32c 100644
+--- a/hindsight-integrations/coding-agents/src/harness/opencode2.test.ts
++++ b/hindsight-integrations/coding-agents/src/harness/opencode2.test.ts
+@@ -119,6 +119,24 @@ function fakeCore(overrides: Partial<Record<string, unknown>> = {}) {
+ }
+ 
+ describe("opencode2 adapter", () => {
++  it("managed context omits the companion skill while retaining native session ownership guards", async () => {
++    const fake = fakeContext();
++    const core = fakeCore({
++      managedContext: true,
++      toolSpecs: () => [],
++      getInjection: vi.fn(() => undefined),
++    });
++    const stop = await wireOpencode2Runtime(core, fake.ctx);
++    expect(fake.skills).toEqual([]);
++    expect(fake.tools).toEqual([]);
++    await fake.emit({ type: "session.idle", data: { sessionID: "foreign-session" } });
++    expect(core.onSessionIdle).not.toHaveBeenCalled();
++    await fake.prompt()({ sessionID: "own-session", prompt: { text: "hello" } });
++    await fake.emit({ type: "session.idle", data: { sessionID: "own-session" } });
++    expect(core.onSessionIdle).toHaveBeenCalledWith("own-session");
++    expect(fake.synthetics).toEqual([]);
++    stop();
++  });
+   it("registers every hindsight tool with codemode disabled", async () => {
+     // NOT decoration: a v2 tool left on the default is only reachable through the host's `execute`
+     // code-execution tool, so a model calling it by name — which is what the skill and the injected
+diff --git a/hindsight-integrations/coding-agents/src/harness/opencode2.ts b/hindsight-integrations/coding-agents/src/harness/opencode2.ts
+index 19a68ef429e8b56dd74881c352dbcd13bbfd95bf..ffb7187d0b26efc5790771b88432ba435b936221 100644
+--- a/hindsight-integrations/coding-agents/src/harness/opencode2.ts
++++ b/hindsight-integrations/coding-agents/src/harness/opencode2.ts
+@@ -167,7 +167,7 @@ export async function wireOpencode2Runtime(
+     for (const spec of core.toolSpecs()) draft.add(toOpencode2Tool(spec));
+   });
+ 
+-  await registerCompanionSkill(ctx, harness);
++  if (!core.managedContext) await registerCompanionSkill(ctx, harness);
+ 
+   // Sessions THIS plugin instance owns. See the event loop below for why the write-back cannot do
+   // without it.
+diff --git a/hindsight-integrations/coding-agents/src/installer.ts b/hindsight-integrations/coding-agents/src/installer.ts
+index 2254de862ded51b6b70b930f537dcd203b114d29..062be2663601ce136f3948b38d4073c06a456e29 100644
+--- a/hindsight-integrations/coding-agents/src/installer.ts
++++ b/hindsight-integrations/coding-agents/src/installer.ts
+@@ -61,6 +61,7 @@ import {
+   workspaceMcpGateState,
+ } from "./core/traecode-mcp";
+ import { formatUsageReport, readUsage } from "./core/usage";
++import { loadConfig } from "./core/config";
+ import { createInstallerUi, type SelectOption } from "./install-ui";
+ 
+ /**
+@@ -319,6 +320,13 @@ function skillsBaseFor(c: InstallCtx, harness: string): string {
+  * the skill before their first own log, and an unprefixed line would render under the PREVIOUS
+  * harness's group in the CLI output. */
+ function installSkill(c: InstallCtx, harness: string): void {
++  if (
++    loadConfig({
++      harness,
++      path: process.env.HINDSIGHT_CONFIG || join(c.home, ".hindsight", "coding-agent.json"),
++    }).managedContext
++  )
++    return;
+   const src = join(c.pkgRoot, "skill");
+   if (!existsSync(join(src, "SKILL.md"))) return;
+   const skillsBase = skillsBaseFor(c, harness);
+diff --git a/hindsight-integrations/coding-agents/src/mcp-server.ts b/hindsight-integrations/coding-agents/src/mcp-server.ts
+index 3c1a5be6d93b7b9daf4678f3cf3609858564f8b3..a4dc0149d4dfc453932e6ac26089e90872cadc0b 100644
+--- a/hindsight-integrations/coding-agents/src/mcp-server.ts
++++ b/hindsight-integrations/coding-agents/src/mcp-server.ts
+@@ -20,6 +20,7 @@ import { type Config } from "./core/config";
+ import { resolveHostMemory } from "./core/host-client";
+ import { HindsightClient } from "./core/hindsight";
+ import { buildPageTools, type ToolSpec } from "./core/page-tools";
++import { buildManagedTools } from "./core/managed-tools";
+ import { buildPageTrigger } from "./core/missions";
+ import { buildRetainStamp } from "./core/retain-stamp";
+ 
+@@ -35,6 +36,7 @@ export function selectTools(
+   bankId: string,
+   opts: { cwd?: string; harness?: string } = {}
+ ): ToolSpec[] {
++  if (cfg.managedContext) return buildManagedTools(client, cfg);
+   const cwd = opts.cwd ?? process.cwd();
+   const harness = opts.harness ?? cfg.harness;
+   return cfg.disabled
+diff --git a/hindsight-system-tests/tests/test_resident_extension.py b/hindsight-system-tests/tests/test_resident_extension.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..e4f136ee55b511539c5752b2a8f4a3a9d919cb3f
+--- /dev/null
++++ b/hindsight-system-tests/tests/test_resident_extension.py
+@@ -0,0 +1,207 @@
++"""A trusted facade and a split worker obey the same protected resident policy.
++
++Only the public Python client drives the server. Provider requests use the suite's
++strict deterministic stub; retain and consolidation run in the standalone worker.
++The adversarial private note is intentional: deployment policy normally gives each
++trust boundary its own bank, while this story also verifies tag confinement.
++"""
++
++from __future__ import annotations
++
++import hashlib
++import json
++import os
++import uuid
++from collections.abc import Iterator
++from dataclasses import dataclass
++from pathlib import Path
++
++import pytest
++from hindsight_client import Hindsight
++from hindsight_client_api.exceptions import ForbiddenException, NotFoundException, UnauthorizedException
++
++from hindsight_system_tests.payloads import consolidation, extracted, fact
++from hindsight_system_tests.server import HindsightServer, start_hindsight_server, start_hindsight_worker
++from hindsight_system_tests.waiting import wait_until_settled
++
++pytestmark = pytest.mark.asyncio
++ROOT = Path(__file__).resolve().parents[2]
++SCHEMA = "systest_resident"
++FACADE_TOKEN = "test-resident-facade-0000000000000000000000000000000000000000000"
++OPERATOR_TOKEN = "test-resident-operator-00000000000000000000000000000000000000000"
++
++
++@dataclass
++class ResidentDeployment:
++    server: HindsightServer
++    worker: HindsightServer
++    bank: str
++
++
++@pytest.fixture
++def resident_deployment(stub_server, tmp_path: Path) -> Iterator[ResidentDeployment]:
++    bank = f"systest-resident-{uuid.uuid4().hex[:12]}"
++    read_ops = [
++        "recall",
++        "get_bank_profile",
++        "get_document",
++        "list_documents",
++        "list_memory_units",
++        "list_banks",
++        "list_operations",
++        "get_operation_status",
++    ]
++    policy = {
++        "schema_version": 1,
++        "database_schema": SCHEMA,
++        "principals": [
++            {
++                "id": "facade",
++                "token_sha256": hashlib.sha256(FACADE_TOKEN.encode()).hexdigest(),
++                "grants": [
++                    {
++                        "bank": bank,
++                        # The story exercises upstream auto-consolidation too. Its
++                        # submission uses the retained caller's context; an external
++                        # scoped caller is still refused bank-wide maintenance.
++                        "operations": ["retain", "submit_async_consolidation", *read_ops],
++                        "read_tags": ["project:story"],
++                        "write_tags": ["project:story", "source:*"],
++                    }
++                ],
++            },
++            {
++                "id": "operator",
++                "token_sha256": hashlib.sha256(OPERATOR_TOKEN.encode()).hexdigest(),
++                "grants": [
++                    {
++                        "bank": bank,
++                        "operations": [
++                            "create_bank",
++                            "update_bank",
++                            "delete_bank",
++                            "retain",
++                            "submit_async_consolidation",
++                            *read_ops,
++                        ],
++                        "read_tags": None,
++                        "write_tags": None,
++                    }
++                ],
++            },
++        ],
++        "internal_grants": [{"bank": bank, "operations": ["consolidate", "recall", "get_bank_profile"]}],
++    }
++    path = tmp_path / "resident-policy.json"
++    path.write_text(json.dumps(policy))
++    env = {
++        "HINDSIGHT_API_DATABASE_SCHEMA": SCHEMA,
++        "HINDSIGHT_API_TENANT_EXTENSION": "hindsight_ext_resident:ResidentTenantExtension",
++        "HINDSIGHT_API_TENANT_POLICY_FILE": str(path),
++        "HINDSIGHT_API_OPERATION_VALIDATOR_EXTENSION": "hindsight_ext_resident:ResidentOperationValidator",
++        "HINDSIGHT_API_OPERATION_VALIDATOR_POLICY_FILE": str(path),
++        "HINDSIGHT_API_LLM_REQUEST_EXTENSION": "hindsight_ext_bank_llm_routing:BankLLMRoutingExtension",
++        "HINDSIGHT_API_LLM_REQUEST_ROUTES": json.dumps([{"bank": bank, "schema": SCHEMA, "api_key": "stub-key"}]),
++        "HINDSIGHT_API_LLM_REQUEST_UNMATCHED": "deny",
++        "HINDSIGHT_API_SKIP_LLM_VERIFICATION": "true",
++        "HINDSIGHT_API_WORKER_MAX_SLOTS": "2",
++        "HINDSIGHT_API_WORKER_CONSOLIDATION_RESERVED_SLOTS": "1",
++        "HINDSIGHT_API_MCP_ENABLED": "false",
++        "HINDSIGHT_API_ENABLE_BANK_CONFIG_API": "false",
++        "PYTHONPATH": os.pathsep.join(
++            [
++                str(ROOT / "hindsight-extensions/resident"),
++                str(ROOT / "hindsight-extensions/bank-llm-routing"),
++            ]
++        ),
++    }
++    server = start_hindsight_server(
++        stub_url=stub_server.url,
++        log_path=tmp_path / "api.log",
++        extra_env={**env, "HINDSIGHT_API_WORKER_ENABLED": "false"},
++    )
++    try:
++        worker = start_hindsight_worker(stub_url=stub_server.url, log_path=tmp_path / "worker.log", extra_env=env)
++        try:
++            yield ResidentDeployment(server, worker, bank)
++        finally:
++            worker.stop()
++    finally:
++        server.stop()
++
++
++async def test_resident_facade_cannot_escape_its_bank_or_scope(resident_deployment: ResidentDeployment, llm) -> None:
++    deployment = resident_deployment
++    bank = deployment.bank
++    operator = Hindsight(base_url=deployment.server.url, api_key=OPERATOR_TOKEN)
++    facade = Hindsight(base_url=deployment.server.url, api_key=FACADE_TOKEN)
++    unknown = Hindsight(base_url=deployment.server.url, api_key="wrong-key")
++    llm.on_step("extract_facts", contains="The harbor closes").returns(
++        extracted(fact("The harbor closes at sunset", who="Harbor"))
++    )
++    llm.on_step("extract_facts", contains="Private access code").returns(
++        extracted(fact("The private access code is violet", who="Operator"))
++    )
++    llm.on_step("consolidate").returns(consolidation())
++    try:
++        await operator.acreate_bank(bank_id=bank, name="Resident policy story")
++        with pytest.raises(UnauthorizedException):
++            await unknown.arecall(bank_id=bank, query="harbor")
++        with pytest.raises(ForbiddenException):
++            await facade.arecall(bank_id=bank + "-other", query="harbor")
++        with pytest.raises(ForbiddenException):
++            await facade.aretain(bank_id=bank, content="Missing scope tag")
++        with pytest.raises(ForbiddenException):
++            await facade.aretain(bank_id=bank, content="Foreign tag", tags=["project:story", "private:operator"])
++        with pytest.raises(ForbiddenException):
++            await facade.banks.delete_bank(bank)
++
++        await operator.aretain(
++            bank_id=bank,
++            content="Private access code is violet.",
++            document_id="private-note",
++            tags=["private:operator"],
++        )
++        operation_id = str(uuid.uuid4())
++        first = await facade.aretain(
++            bank_id=bank,
++            content="The harbor closes at sunset.",
++            document_id="source-revision-1",
++            tags=["project:story", "source:revision-1"],
++            retain_async=True,
++            operation_id=operation_id,
++        )
++        repeated = await facade.aretain(
++            bank_id=bank,
++            content="The harbor closes at sunset.",
++            document_id="source-revision-1",
++            tags=["project:story", "source:revision-1"],
++            retain_async=True,
++            operation_id=operation_id,
++        )
++        assert first.operation_id == repeated.operation_id == operation_id
++        receipt = await facade.operations.get_operation_status(bank, operation_id)
++        assert receipt.status in {"pending", "processing", "completed"}
++        await wait_until_settled(operator, bank)
++        assert (await facade.operations.get_operation_status(bank, operation_id)).status == "completed"
++
++        # Caller filters cannot widen the strict extension scope. Even without a
++        # filter, the private note and its source document stay inaccessible.
++        recalled = await facade.arecall(bank_id=bank, query="harbor access", include_chunks=True)
++        assert [item.text for item in recalled.results] == ["The harbor closes at sunset | Involving: Harbor"]
++        widened = await facade.arecall(
++            bank_id=bank, query="private access", tags=["private:operator"], tags_match="any"
++        )
++        assert widened.results == []
++        with pytest.raises(NotFoundException):
++            await facade.documents.get_document(bank, "private-note")
++        documents = await facade.documents.list_documents(bank)
++        assert [document.id for document in documents.items] == ["source-revision-1"]
++        memories = await facade.alist_memories(bank_id=bank)
++        assert len(memories.items) == 1
++        operations = await operator.operations.list_operations(bank, status="completed")
++        assert any(operation.task_type == "consolidation" for operation in operations.operations)
++    finally:
++        await operator.banks.delete_bank(bank)
++        for client in (operator, facade, unknown):
++            await client.aclose()

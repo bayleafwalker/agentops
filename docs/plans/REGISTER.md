@@ -12,7 +12,7 @@ document did not name. Read this before treating any plan as direction;
 `python3 scripts/plan_register.py --check` fails when a plan file is
 missing from it.
 
-Counts: proposed 22, accepted 29, active 19, superseded 9, rejected 1, archived 16, reference 17.
+Counts: proposed 22, accepted 29, active 20, superseded 9, rejected 1, archived 16, reference 17.
 
 | Plan | Status | Declared | Owner | Work ref | Successor | Last verified | Justification |
 |---|---|---|---|---|---|---|---|
@@ -44,6 +44,7 @@ Counts: proposed 22, accepted 29, active 19, superseded 9, rejected 1, archived 
 | [docs/plans/2026-11-03-opencode-v2-host-adapter.md](2026-11-03-opencode-v2-host-adapter.md) | active | implementation and qualification in progress; not a deployment or | agentops (default-assigned 2026-11-07) | agentops#2874 | - | 2026-11-07 | - |
 | [docs/plans/2026-11-06-vuoro-cloud-migration-plan.md](2026-11-06-vuoro-cloud-migration-plan.md) | active | plan only; no vuoro-cloud change is made or authorized by this document. | vuoro-cloud (default-assigned 2026-11-07) | - | - | 2026-11-07 | declares itself plan only (no vuoro-cloud change authorized by the document); P0-P4, P6, P7 merged on vuoro-cloud and P5 #353 open (programmes/STATUS.md, 2026-11-07) |
 | [docs/plans/2026-11-08-vuoro-cloud-record-family-cutover.md](2026-11-08-vuoro-cloud-record-family-cutover.md) | proposed | Proposed plan for agentops#2536; no actions authorized. | agentops (default-assigned 2026-11-08) | agentops#2536 | - | 2026-11-08 | - |
+| [docs/plans/2026-11-16-resident-memory-and-session.md](2026-11-16-resident-memory-and-session.md) | active | implementation branch, 2026-11-16. Host activation is gated separately. | agentops | - | - | 2026-11-16 | User-authorized implementation; served-work linkage pending workspace binding; host activation remains gated. |
 | [docs/plans/Vuoro-Clean-Room-Comparison-Plan.md](Vuoro-Clean-Room-Comparison-Plan.md) | archived | READY — reduced-spec baseline frozen 2026-07-23. | agentops (default-assigned 2026-11-07) | - | - | 2026-11-07 | declared READY 2026-07-23; the clean-room migration-safety gate closed 2026-07-24 with no migration (next-session-dispatch.md) |
 | [docs/plans/Vuoro-Pre-Clean-Room-Assessment-Plan.md](Vuoro-Pre-Clean-Room-Assessment-Plan.md) | archived | - | agentops (default-assigned 2026-11-07) | - | - | 2026-11-07 | pre-assessment for the clean-room gate, which closed 2026-07-24 (next-session-dispatch.md) |
 | [docs/plans/agentops/2026-08-23-handoff-loop-and-telemetry.md](agentops/2026-08-23-handoff-loop-and-telemetry.md) | archived | draft hand-off (2026-08-23). Pathway: vuoro docs/plans/2026-08-23-requirements-pathway-v5-… | agentops (default-assigned 2026-11-07) | - | - | 2026-11-07 | draft hand-off dated 2026-08-23 for the v5 pathway; historical |
