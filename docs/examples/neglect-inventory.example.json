@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "inventory_id": "example-stack",
+  "scenario": "operator_absent_automation_continues",
+  "source_revisions": {
+    "example": "0000000000000000000000000000000000000000"
+  },
+  "obligations": [
+    {
+      "id": "client-certificate",
+      "kind": "expiry",
+      "source_ref": "example:certificate-contract",
+      "max_age_seconds": 3600,
+      "probe": {
+        "kind": "certificate",
+        "path": "public-client.crt",
+        "collect_on": "example-host"
+      },
+      "renewer_id": "identity-renewal",
+      "recovery_path": [
+        {
+          "id": "broker-route",
+          "basis": "source",
+          "evidence_ref": "example:recovery-contract"
+        }
+      ]
+    },
+    {
+      "id": "identity-renewal",
+      "kind": "renewal",
+      "source_ref": "example:renewal-service",
+      "max_age_seconds": 3600,
+      "probe": {
+        "kind": "systemd_timer",
+        "unit": "example-identity.timer",
+        "service": "example-identity.service",
+        "scope": "user",
+        "collect_on": "example-host"
+      },
+      "prerequisites": [
+        {
+          "id": "broker-route",
+          "basis": "source",
+          "evidence_ref": "example:renewal-dependency"
+        }
+      ]
+    },
+    {
+      "id": "broker-route",
+      "kind": "prerequisite",
+      "source_ref": "example:broker-route",
+      "max_age_seconds": 3600,
+      "probe": {
+        "kind": "receipt",
+        "path": "receipts/broker-route.json"
+      }
+    },
+    {
+      "id": "recovery-drill",
+      "kind": "drill",
+      "source_ref": "example:recovery-policy",
+      "max_age_seconds": 7776000,
+      "probe": {
+        "kind": "none"
+      },
+      "due": {
+        "at": "2027-01-19T23:59:59+02:00",
+        "basis": "configured",
+        "evidence_ref": "example:quarterly-drill-policy"
+      }
+    }
+  ]
+}
