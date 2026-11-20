@@ -1,0 +1,93 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "worldwindow-kernel-m2",
+  "closed_on": "2026-11-20",
+  "outcome": "WorldWindow kernel rework M2: a fast review loop (preview with --watch under a measured latency target, a generated review package, review records, and promote refusing without a matching promote record), judged by coordinator-owned criteria and an independently authored acceptance suite.",
+  "work_refs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/plans/2026-11-19-rework-plan.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/m2/CRITERIA.md"
+  ],
+  "prs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/12"
+  ],
+  "acceptance": {
+    "state": "accepted",
+    "criteria": [
+      "Final acceptance run at c8a35f3 (package code identical to the merged head c803341): 255 passed and 1 failed (an AGENTS.md documentation check). That check was fixed in 5e13fc5 and its file then passed 10/10. The first full run at 58e8e7f: 247 passed, 2 failed, both fixed.",
+      "Watch-refresh latency target (median <= 3 s, max <= 6 s) met. Implementer measured 1.186 s median / 1.297 s max idle and 1.455 / 2.412 s under load 9-12; reviewer measured 1.57 / 1.73 s loaded.",
+      "M1 acceptance re-run passed (1475 s); review frames are byte-identical to M1's; 163 kernel unit tests pass, including from the installed wheel; Forgejo CI green at c803341."
+    ],
+    "note": "Revisions R1-R4 clarify criteria without weakening them. Proposal P8 (ignore non-YAML files in reviews/) was rejected, and 4 acceptance tests were added for misnamed and binary files instead. P7 is deferred."
+  },
+  "route": {
+    "complexity_decision": "Rework plan route: Luna. Re-tested Codex after the M1 failure, since renders were now fast.",
+    "selected": {
+      "role": "implementer",
+      "harness": "codex via agentops dispatch run",
+      "model": "gpt-6-luna"
+    },
+    "observed": {
+      "role": "implementer",
+      "harness": "claude-code Agent subagent",
+      "model": "claude-sonnet-5-5",
+      "evidence": "The coordinator re-routed after two Codex Luna escalations. The Sonnet subagent replaced the Codex draft in 22.6 min (222,350 tokens). One repair round followed: 11.2 min, 269,149 tokens. Token counts are as the harness reported them."
+    },
+    "suboutcomes": [
+      {
+        "role": "implementer attempt 1",
+        "harness": "codex via agentops dispatch run",
+        "model": "gpt-6-luna",
+        "evidence": "13:24:44-13:28:56Z, 54,970 tokens. Escalated: its first draft measured a 3.9 s median refresh and it did not attempt optimization. The coordinator kept the target and returned evidence. Status 'escalated' was accurate."
+      },
+      {
+        "role": "implementer attempt 2",
+        "harness": "codex via agentops dispatch run",
+        "model": "gpt-6-luna",
+        "evidence": "13:29:41-13:41:04Z, 110,302 tokens. Escalated again with 4.3-5.7 s refreshes, duplicate and out-of-order log entries, and incomplete, uncommitted work. Status 'escalated' and the final message were honest."
+      },
+      {
+        "role": "acceptance author (independent of the implementer)",
+        "harness": "claude-code Agent subagent",
+        "model": "claude-sonnet-5-5",
+        "evidence": "80 min, 336,870 tokens, about 250 tests and 17 proposals, written from acceptance/m2/CRITERIA.md."
+      }
+    ]
+  },
+  "coordinator_effort": {
+    "minutes": 33,
+    "basis": "estimate",
+    "note": "The M2 coordinator session estimated 28-38 min: the sum of gaps between turns of up to 2 or 5 min, including short tool runs. The top-level coordinator's hand-off and closeout time is small and not added."
+  },
+  "elapsed": {
+    "minutes": 218.5,
+    "basis": "measured",
+    "note": "Wall clock from the M2 start (13:17:52Z) to the merge (16:56:22Z). Includes worker waits, two detached acceptance runs of about 45 min each, and a pause of about 23 min at a usage limit."
+  },
+  "review": {
+    "reviewer": {
+      "role": "code reviewer",
+      "harness": "claude-code Agent subagent",
+      "model": "claude-opus-5-5",
+      "evidence": "22 min, 220,486 tokens. Most findings were confirmed by execution."
+    },
+    "independent": true,
+    "same_tier_as_worker": false,
+    "findings": {
+      "blocker": 0,
+      "major": 4,
+      "minor": 7
+    }
+  },
+  "repairs": {
+    "count": 17,
+    "by": "mixed",
+    "note": "The implementer repaired all 11 review findings in one round, with a test for each fix. It also repaired 4 vacuous tests and 3 coverage gaps, which are not counted here. Mapping: 1 High (a reverted edit left a stale preview through coalescing) and 3 Medium (new-code digest on old-code pixels after a mid-refresh edit; promote skipped non-.yaml files; review exit codes and short loops) are major. 7 Low are minor. The coordinator made 6 repairs: an impossible-date record now named; a clear message for an empty scene file; the digest in the README's record path; a CI unit test assuming src/ while CI installs the wheel; and the AGENTS.md review-loop commands and reviews/ location."
+  },
+  "cost": {
+    "usd": null,
+    "tokens": null,
+    "basis": "unknown",
+    "source": "Worker tokens as reported: Codex attempts 165,272; Sonnet implementer 491,499; acceptance author 336,870; Opus reviewer 220,486. Subagent total 1,214,127. Coordinator tokens were not captured."
+  },
+  "practice_observation": "Second consecutive Codex non-delivery on this repository. M1 used Terra and M2 used Luna, both through agentops dispatch run. This time the dispatch status was accurate ('escalated', with honest final messages), unlike M1's false 'done'. But the worker escalated on optimizable performance and integration problems instead of repairing them within its authority. A Claude Sonnet subagent delivered both milestones. As in M1, a higher-tier independent reviewer (Opus) found defects the same-tier acceptance suite missed: 1 High and 3 Medium. Detached acceptance runs (setsid nohup) survived a usage-limit pause. Running five sessions in parallel later hit the 5-hour usage limit twice in one day, so parallel session count should be scaled to observed capacity. Two outcomes are not a comparative model-quality claim."
+}
