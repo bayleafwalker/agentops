@@ -23,4 +23,4 @@ against the schema.
 | [2026-11-10-lanectl-delivery-020.json](2026-11-10-lanectl-delivery-020.json) | Native landing, PR reconciliation, unattended integration and conservative abandoned-runner recovery. |
 | [2026-11-10-lanectl-specification-020.json](2026-11-10-lanectl-specification-020.json) | Independent intent drafting, adversarial review, recurring maintenance intake and isolated local native provider. |
 | [2026-11-10-lanectl-coordination-020.json](2026-11-10-lanectl-coordination-020.json) | Owner-coordinated native execution and atomic served lane events, with optional immutable service composition. |
-| [2026-11-20-worldwindow-kernel-m1.json](2026-11-20-worldwindow-kernel-m1.json) | WorldWindow kernel rework M1: painting-first core at v3b parity (human A/B pending). |
+| [2026-11-20-worldwindow-kernel-m1.json](2026-11-20-worldwindow-kernel-m1.json) | WorldWindow kernel rework M1: painting-first core at v3b parity, accepted after the human A/B. |

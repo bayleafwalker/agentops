@@ -8,16 +8,17 @@
     "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/m1/CRITERIA.md"
   ],
   "prs": [
-    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/6"
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/6",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/8"
   ],
   "acceptance": {
-    "state": "partially-accepted",
+    "state": "accepted",
     "criteria": [
       "Independent acceptance suite acceptance/m1 green at worldwindow-kernel e1d9c2e: 179 tests in one full run, plus 3 re-run after test-side alignment (about 35 minutes; not in CI).",
       "Kernel unit suite 73 passed; Forgejo CI on PR #6 green, including a smoke render, gates and master.",
       "All 1152 review frames at 960x412 from the real painting: seam step 0.781 and acceleration 0.853 (limit 1.10; v3b 0.782 and 0.847); protect, motion-out and determinism differences all 0; motion-in passes per layer.",
       "Every negative control fails its named gate; FFV1 master decodes to per-frame SHA-256 equality with the frames.",
-      "Pending: the recorded human A/B against v3b, the last M1 criterion. The review package is built; the verdict is the operator's."
+      "Human A/B against v3b recorded as parity-pass by the operator on 2026-11-20 (worldwindow-kernel reviews/wizard-valley-hot-pool/2026-11-20-68778dbc.yaml, PR #8)."
     ],
     "note": "Criteria were revised six times (R1-R6) from review and acceptance evidence, with the original wording preserved in CRITERIA.md. One proposal that would have weakened a criterion (judge only supplied frames) was rejected."
   },
@@ -63,7 +64,7 @@
   "elapsed": {
     "minutes": 160,
     "basis": "measured",
-    "note": "Active windows from transcript timestamps: 2026-11-19 18:44-20:31Z (107 min) and 2026-11-20 06:52-07:46Z (54 min, to merge). Wall clock was 13 h 2 min, including an overnight idle gap and a session restart that killed a background acceptance run. The human A/B is not included."
+    "note": "Active windows from transcript timestamps: 2026-11-19 18:44-20:31Z (107 min) and 2026-11-20 06:52-07:46Z (54 min, to merge). Wall clock was 13 h 2 min, including an overnight idle gap and a session restart that killed a background acceptance run. The human A/B review time is not included; its verdict arrived at about 08:03Z."
   },
   "review": {
     "reviewer": {
