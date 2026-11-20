@@ -1,0 +1,95 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "worldwindow-kernel-m1",
+  "closed_on": "2026-11-20",
+  "outcome": "WorldWindow kernel rework M1: a painting-first core (scene, clock, effects, segment renderer, gates, FFV1 master) that renders the Wizard Valley loop at parity with legacy v3b, judged by a coordinator-owned criteria file and an independently authored acceptance suite.",
+  "work_refs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/plans/2026-11-19-rework-plan.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/m1/CRITERIA.md"
+  ],
+  "prs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/6"
+  ],
+  "acceptance": {
+    "state": "partially-accepted",
+    "criteria": [
+      "Independent acceptance suite acceptance/m1 green at worldwindow-kernel e1d9c2e: 179 tests in one full run, plus 3 re-run after test-side alignment (about 35 minutes; not in CI).",
+      "Kernel unit suite 73 passed; Forgejo CI on PR #6 green, including a smoke render, gates and master.",
+      "All 1152 review frames at 960x412 from the real painting: seam step 0.781 and acceleration 0.853 (limit 1.10; v3b 0.782 and 0.847); protect, motion-out and determinism differences all 0; motion-in passes per layer.",
+      "Every negative control fails its named gate; FFV1 master decodes to per-frame SHA-256 equality with the frames.",
+      "Pending: the recorded human A/B against v3b, the last M1 criterion. The review package is built; the verdict is the operator's."
+    ],
+    "note": "Criteria were revised six times (R1-R6) from review and acceptance evidence, with the original wording preserved in CRITERIA.md. One proposal that would have weakened a criterion (judge only supplied frames) was rejected."
+  },
+  "route": {
+    "complexity_decision": "Coordinator judgement recorded in the rework plan: Terra, because M1 introduces new contracts and numerical semantics and ports legacy behaviour. No advisory classifier was consulted.",
+    "selected": {
+      "role": "implementer",
+      "harness": "codex via agentops dispatch run",
+      "model": "gpt-5.6-terra"
+    },
+    "observed": {
+      "role": "implementer",
+      "harness": "claude-code Agent subagent",
+      "model": "claude-sonnet-5-5",
+      "evidence": "Re-routed after two Codex Terra attempts did not deliver. Model read from the subagent transcript's message records (claude-sonnet-5-5). The same subagent applied the review repairs by continuation."
+    },
+    "suboutcomes": [
+      {
+        "role": "acceptance author (independent of the implementer)",
+        "harness": "claude-code Agent subagent",
+        "model": "claude-sonnet-5-5",
+        "evidence": "Wrote acceptance/m1 (oracles, v3b calibration, criteria tests and negative controls) from CRITERIA.md alone. Model read from the subagent transcript."
+      },
+      {
+        "role": "implementer attempt 1",
+        "harness": "codex via agentops dispatch run",
+        "model": "gpt-5.6-terra",
+        "evidence": "18:51-18:58Z, 79,597 tokens. Escalated: the sandbox refused the recursive deletion of the v0.1 trees that criterion 12 requires. The coordinator made the deletion as an explicit git rm. Status recorded dirty:false. Model is the requested binding; no runtime binding was reported."
+      },
+      {
+        "role": "implementer attempt 2 (continuation)",
+        "harness": "codex via agentops dispatch run",
+        "model": "gpt-5.6-terra",
+        "evidence": "19:00-19:10Z, 100,458 tokens. Status outcome 'done' with dirty:true, but the worker's final message said M1 was not completed: the full render did not finish within its tool execution limit, and gates, tests, docs and commits were missing. Model is the requested binding."
+      }
+    ]
+  },
+  "coordinator_effort": {
+    "minutes": 40,
+    "basis": "estimate",
+    "note": "Sum of gaps between consecutive coordinator transcript entries in the M1 window: 36 min with gaps up to 2 min, 45 min with gaps up to 5 min. This includes short tool runs. Covers criteria authoring and revisions R1-R6, worker briefs, the deletion after escalation, three acceptance-test alignments, per-layer motion-in thresholds, the A/B package and landing."
+  },
+  "elapsed": {
+    "minutes": 160,
+    "basis": "measured",
+    "note": "Active windows from transcript timestamps: 2026-11-19 18:44-20:31Z (107 min) and 2026-11-20 06:52-07:46Z (54 min, to merge). Wall clock was 13 h 2 min, including an overnight idle gap and a session restart that killed a background acceptance run. The human A/B is not included."
+  },
+  "review": {
+    "reviewer": {
+      "role": "code reviewer",
+      "harness": "claude-code Agent subagent",
+      "model": "claude-opus-5-5",
+      "evidence": "Model read from the subagent transcript."
+    },
+    "independent": true,
+    "same_tier_as_worker": false,
+    "findings": {
+      "blocker": 0,
+      "major": 4,
+      "minor": 10
+    }
+  },
+  "repairs": {
+    "count": 17,
+    "by": "mixed",
+    "note": "The implementer subagent repaired all 14 review findings in one continuation. Reviewer scale: 2 High (motion-in measured on the composite rather than per layer; per-layer motion-out sampled 8 of 1152 frames), 2 Medium, 2 Medium-low or Low-medium, 5 Low and 3 Maintainability. High and Medium are mapped to major, the rest to minor. The coordinator aligned 3 acceptance tests with the R6 contract clarifications (manifest location, sub-period report parsing, cache layout). These were test-side; there were no implementation defects."
+  },
+  "cost": {
+    "usd": null,
+    "tokens": null,
+    "basis": "unknown",
+    "source": "Only the Codex attempts reported tokens: 179,055 in total. The Claude subagent and coordinator token counts were not captured."
+  },
+  "practice_observation": "Keep: a coordinator-owned criteria file with recorded revisions, plus an acceptance suite from a separate author. Neither the implementer nor the reviewer could quietly redefine done. The suite and the review together drove six criteria clarifications, and one weakening proposal was rejected. Keep a higher-tier independent reviewer: Opus found two High gate-semantics defects that the same-tier acceptance suite did not catch. Observed failure: for this outcome, Codex Terra under agentops dispatch run did not deliver. The first attempt escalated on a workspace deletion policy. The second ran out of its tool execution window on a multi-minute render and returned outcome 'done' for incomplete work. Read the worker's final message, not the status outcome field, before treating a run as complete. A Claude Sonnet subagent, with renders run in the background, delivered in one pass plus one repair round. This is a single outcome, so it is not a comparative model-quality claim. Long acceptance runs (about 35 min) need detached execution that survives a session restart."
+}
