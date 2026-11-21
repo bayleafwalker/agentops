@@ -1,0 +1,91 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "worldwindow-kernel-ec-0",
+  "closed_on": "2026-11-21",
+  "outcome": "WorldWindow kernel EC-0: effect-class consumer assets for the two paintings (migration imports, shared maps, ritual patches, layer-less base scenes, storm foregrounds with rim layers, pane and lattice), judged by the independently authored EC-A criteria without shaping any asset to a statistic.",
+  "work_refs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/effects/ec-0",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/scenes/wizard-valley-storm",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/scenes/long-chant-ritual"
+  ],
+  "prs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/15",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/19",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/26",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/37"
+  ],
+  "acceptance": {
+    "state": "accepted",
+    "criteria": [
+      "EC-A suite acceptance/effects/ec-0 at 6d3fc2d (last asset or measurement change): 54 passed, 0 skipped (measured; re-run by the round-3 reviewer). At main ec06027: 53 passed, 1 skipped, 112 s (measured); the skip is the c12 scope test, which cannot see a merged change, and the 11 EC-0 commits touch nothing outside the owned paths (measured).",
+      "Full repo pytest: 672 passed at 6d3fc2d before the merge (measured); worldwindow validate exit 0 on both base scenes at ec06027 (measured); CI verify job success on #37's head (reported by the forge). The authoring chain reruns byte-identically (measured, also by the round-3 reviewer).",
+      "Measured on the assets: fringe 0.018-0.028 against the 0.05 gate; true residual 0.012-0.292 px with gain floor 0.5 (lantern-post gain y 0.56); S16 moved-background 0.010-0.011 at native; S17 kernel path 0 codes on 8,559 pixels; S18 plate shares opaque 0.008-0.106 (limit 0.75), clear 0.000 (limit 0.04); ritual arcs max 0.45 px and sigils adjacent-ring max 0.40 px against 0.5."
+    ],
+    "note": "Recorded limits, not rejections: (1) cascade face maps on the painted waterfall not authored (the copied v3b cascade maps are known-misplaced and kept as parity record; no class card needs them); (2) figure-far not cut; (3) arch matte omits some hooks, vines and fronds, the pool lantern base is a hand rectangle, lantern plates are beige fills; (4) lantern-post is the cut closest to the limits (gain y 0.56 against floor 0.5); (5) ritual arc patch keeps a faint haze and core glow, one wide-ring sigil tile reads 0.88 px; (6) pixels left as painted are a static edge S16 does not judge, and rim layers freeze background by design (escalated to the coordinator); (7) the native fringe reading is partly by construction. The legacy mask finding (storm painting drifts about 10 px on the right against the hot-pool painting) means legacy masks are guides only. Superseded PRs #24, #25, #27 and #30 remain open because the Forgejo token has no write:issue. PR #19 holds the ritual patches (the card's mention of #26 is the pins). Merge commits 0317102, 21941db, 8b246b4, ec06027."
+  },
+  "route": {
+    "complexity_decision": "The card's route was Luna. The coordinator started a Claude Sonnet side session instead; no deterministic rule or classifier answer is recorded.",
+    "selected": {
+      "role": "implementer",
+      "harness": "claude-code desktop side session",
+      "model": "Luna (card route)"
+    },
+    "observed": {
+      "role": "implementer",
+      "harness": "claude-code desktop app (Code tab, Agent SDK harness), worktree ec-0-assets-088a1f",
+      "model": "claude-sonnet-5-5",
+      "evidence": "Usage records and the harness's resolved model. Effort and permission mode unknown. No Luna, Terra, OpenCode Go, Jev or agentops dispatch run was used (transcript has one probe for the tool names and no use)."
+    },
+    "suboutcomes": [
+      {
+        "role": "worker: pool-figure cut mattes (fg_figures.py)",
+        "harness": "claude-code Agent subagent (general-purpose)",
+        "model": "claude-sonnet-5-5",
+        "evidence": "15.3 min, 84 tool uses, 219,531 tokens reported; script used as handed back."
+      },
+      {
+        "role": "worker: lantern-frame cut mattes (fg_lanterns.py)",
+        "harness": "claude-code Agent subagent (general-purpose)",
+        "model": "claude-sonnet-5-5",
+        "evidence": "Failed at an HTTP 429 usage limit after 21.4 min with no hand-back; the saved in-progress script was continued by the session, so how much of its final text is the worker's is unknown."
+      }
+    ]
+  },
+  "coordinator_effort": {
+    "minutes": 60,
+    "basis": "estimate",
+    "note": "Coordinator-supplied. Six design rulings, among them: assets are never shaped to pass statistics, the desk shoulder belongs in the cut, rim alpha is derived, and lantern-post stays a cut. The EC-0 session's own record of coordinator effort is unknown."
+  },
+  "elapsed": {
+    "minutes": 1639.5,
+    "basis": "measured",
+    "note": "2026-11-20 15:45:14Z to the #37 merge 2026-11-21 19:04:42Z (27 h 19 min). Pauses of 20 min or more total 1,298 min (79 percent): usage limits about 520 min, waiting on EC-1a, EC-A and the coordinator about 539 min, idle after a limit reset with unknown cause about 238 min (estimates from measured gaps). The remainder, about 341 min, is working time plus short waits (estimate)."
+  },
+  "review": {
+    "reviewer": {
+      "role": "adversarial reviewer",
+      "harness": "claude-code Agent subagent (general-purpose)",
+      "model": "claude-opus-5-5",
+      "evidence": "Six fresh reviewers (imports #15, maps and patches #19, first foregrounds #24, rim rework #27, coverage-as-painted #30, final branch #37) with briefs written by the implementer session; none wrote or edited the reviewed code. Independent as to authorship, not of the brief. Reviewer labels mapped to blocker, major and minor by the session for reviews 3 and 4 (estimate). PR #26 and the README-only commit ec06027 had no independent review."
+    },
+    "independent": true,
+    "same_tier_as_worker": false,
+    "findings": {
+      "blocker": 4,
+      "major": 18,
+      "minor": 27
+    }
+  },
+  "repairs": {
+    "count": 6,
+    "by": "worker",
+    "note": "4 review-driven repair commits on main (0317102, 21941db, 125ffcf, ec06027) plus 2 whole rework rounds (#24 to #27, then #27 to #30) that never merged; a rebase round produced #37. All repairs were by the implementer session; EC-1a fixed the kernel resampling defect the session diagnosed (EC-1a PR #33). Reworks driven by coordinator rulings: 3. The number of findings fixed versus answered with a recorded reason was not recounted (unknown)."
+  },
+  "cost": {
+    "usd": null,
+    "tokens": null,
+    "basis": "unknown",
+    "source": "Harness-reported cost record $54.05 (Sonnet 5.5 $43.47, Opus 5.5 $10.58) is a lower bound, not a total: snapshotted when the session paused at the 11:02Z limit on 2026-11-21, so it excludes everything after that and the final review (cost after that point unknown, so this is a lower bound). Main session through the merge (estimate, summed from 833 usage records): input 1,708, output 1,130,359, cache creation 2,499,106, cache read 178,749,837. Subagents reported 1,115,626 tokens in all (six reviews 896,095 plus one worker 219,531; the failed worker reported none); the harness's per-agent figures differ from transcript sums by 12 to 50 percent and are not reconciled."
+  },
+  "practice_observation": "Independent Opus reviews found real defects before each landing (an irreproducible envelope with an unrecorded helper, an arc patch that repainted non-arcs, four statistic-shaped paths in the foregrounds). The coordinator's ruling never to shape assets to statistics held: three failing checks became evidence that EC-1a and EC-A acted on (the rest-state error was fixed in the kernel, with image foregrounds built from the native render in EC-1a PR #33, instead of in the assets; the S14, c7 and c9 revisions followed), so all 54 EC-0 checks passed on unshaped assets. Costs: the foregrounds were authored four times (#24, #27, #30, #37) because the rim-layer decision and the criteria moved after the first PR; 8.7 h of 27.3 h went to usage limits (one worker died on one with no hand-back) and 9.0 h to waiting for EC-1a and EC-A; the Forgejo token's missing write:issue left four superseded PRs open with stale bodies. The card routed Luna and a Sonnet session delivered, so this does not test Luna."
+}

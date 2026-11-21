@@ -1,0 +1,104 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "worldwindow-kernel-ec-a",
+  "closed_on": "2026-11-21",
+  "outcome": "WorldWindow kernel EC-A: an independently authored acceptance suite for the effect classes (shared harness, CONTRACT, calibrated gates, and the EC-0, EC-1a and EC-1b criteria), reviewed adversarially until each oracle failed known-wrong implementations and passed correct ones.",
+  "work_refs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/plans/2026-11-20-effect-classes.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/effects/CALIBRATION.md"
+  ],
+  "prs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/17",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/21",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/29",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/34",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/36",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/39"
+  ],
+  "acceptance": {
+    "state": "accepted",
+    "criteria": [
+      "Fast harness at 9190716 (not slow, not budget): 389 passed (measured); slow plate tests 102 passed (reported by the rim worker). After the PR #39 repair: fast harness 391 passed; EC-1a in full 205 passed, 1 scope skip; both new tests fail under the old wrapper (measured).",
+      "Criteria against merged implementations on main ec060275 (measured, 2026-11-21 20:53-21:14Z, single-threaded BLAS, nice 10): EC-0 53 passed, 1 skipped; EC-1a 204 passed, 1 skipped; EC-1b 173 passed, 1 skipped. Each skip is that outcome's scope criterion, which cannot see a merged change; scope was judged on each PR branch. EC-0 against PR #30 merged locally with main: 54 passed, none skipped (measured).",
+      "Calibration (measured, in acceptance/effects/calibration*.json): direction oracle run 6 reads correct references at 14.5 degrees or less and reversed flows at 169.4 or more; rim and plate calibration over 192 rim stacks, 18 cuts and 1632 plate cases fails 0 of 1608 correct plates and all 16 wrong plates on all 7 storm cuts; the reviewer's held-out set passes 126 of 126. CI on 662d89d: success (39 checks, measured). PR #39 (e52e32e) merged with CI success."
+    ],
+    "note": "Six PRs, all fast-forward merges (merge commits 542b0e5, b96fbd9, 7243458, f4c8d1a, 662d89d, e52e32e). PR #28 is superseded by #29 and still open because the Forgejo token cannot close PRs. PR #39 is a repair after acceptance: the EC-4 to EC-7 criteria session found that the Wall clock mutation salted only the seed, so an event-keyed class passed determinism; the fix (EC-1a revision S7, a strengthening) went in as one reviewed PR on 2026-11-21 22:49Z. Four earlier repairs (review rounds 6, 9, 11 and 16) merged on the author's own runs without a further independent check. Compute time of the calibration runs was not logged (unknown). Revisions (EC-0 I1-I12 and S1-S18, CONTRACT C3-C7, EC-1a R1-R8, EC-1b R1, calibration K1-K6) are kept with original wording and evidence."
+  },
+  "route": {
+    "complexity_decision": "Coordinator judgement: acceptance authorship held by a separate, probing session so authors and reviewers differ from implementers. No Luna or Terra card route is recorded in the facts for this outcome.",
+    "selected": {
+      "role": "acceptance author (coordinator session)",
+      "harness": "claude-code desktop side session",
+      "model": "claude-opus-5-5"
+    },
+    "observed": {
+      "role": "acceptance author and coordinator",
+      "harness": "claude-code desktop app (Code tab, Agent SDK harness), worktree ec-a-acceptance-3f5b2e",
+      "model": "claude-opus-5-5",
+      "evidence": "Transcript usage records: 1,083 API calls, about 631 active minutes (estimate: sum of transcript gaps under 10 min, including about 40 min of closeout). No OpenCode, agentops dispatch run or separate Claude sessions; every worker and reviewer was an in-process Agent subagent."
+    },
+    "suboutcomes": [
+      {
+        "role": "EC-1a acceptance tests and adapter, then A1-B9 review fixes (PR #34)",
+        "harness": "claude-code Agent subagent",
+        "model": "claude-opus-5-5",
+        "evidence": "2 runs, about 130 active min (estimate); measured tokens 652 in / 1,542,852 cache write / 64,909,597 cache read / 379,850 out."
+      },
+      {
+        "role": "rim worker: A1-A3, S18, review repairs, I12, F1-F3 recalibration (PR #36)",
+        "harness": "claude-code Agent subagent",
+        "model": "claude-opus-5-5",
+        "evidence": "About 7 runs, about 389 active min (estimate), longest run 125.7 min; measured tokens 1,754 / 4,502,967 / 180,631,186 / 1,195,436; the largest single consumer, 186.3 M or 32 percent of the total."
+      },
+      {
+        "role": "c7 worker: criterion 7 in true pixels, gain floor I11 (PR #36)",
+        "harness": "claude-code Agent subagent",
+        "model": "claude-opus-5-5",
+        "evidence": "1 run, 46.1 min reported; measured tokens 194 / 227,036 / 17,768,653 / 135,499."
+      },
+      {
+        "role": "repair worker: kill 18 surviving oracle mutants (PR #17)",
+        "harness": "claude-code Agent subagent",
+        "model": "claude-sonnet-5-5",
+        "evidence": "1 run, 13.0 min reported; measured tokens 132 / 146,494 / 6,764,243 / 44,192."
+      }
+    ]
+  },
+  "coordinator_effort": {
+    "minutes": 120,
+    "basis": "estimate",
+    "note": "Coordinator-supplied. EC-A needed many rulings: the budget estimator (R1), R6, R7 fringe at native size, R8 motion floor, B6, Q1 rim layers, the PR #30 rulings and the plan section 6.9 image rule."
+  },
+  "elapsed": {
+    "minutes": 1864,
+    "basis": "measured",
+    "note": "First transcript record 2026-11-20 15:45:14Z to the PR #39 merge 2026-11-21 22:49:34Z. Start to the last acceptance merge (PR #36, 18:19:11Z) was 26 h 34 min (measured), of which five 5-hour usage-limit stops took 13 h 38 min (measured); 12 h 56 min excluding them (estimate, includes waiting on workers and reviewers). PR #39 took 48 min from report to merge with no pauses."
+  },
+  "review": {
+    "reviewer": {
+      "role": "adversarial reviewer (EC-A's own work)",
+      "harness": "claude-code Agent subagents",
+      "model": "Fable 5.2 (exact model id not recorded in the facts)",
+      "evidence": "17 review rounds over 6 PRs by 12 Fable 5.2 agents (11 for #17 to #36, one for #39), none of which wrote or edited the code reviewed; each ran its own probes, mutants or held-out sets. Authors were Opus 5.5 (and Sonnet 5.5 for the mutant worker). Caveat: EC-A wrote the review briefs, which could anchor a reviewer."
+    },
+    "independent": true,
+    "same_tier_as_worker": false,
+    "findings": {
+      "blocker": 10,
+      "major": 47,
+      "minor": 57
+    }
+  },
+  "repairs": {
+    "count": 18,
+    "by": "mixed",
+    "note": "16 review-driven repair rounds (12 by the coordinator, 4 by the EC-1a and rim workers; the Sonnet mutant worker did part of PR #17 round 1), 1 repair not driven by review (I12, by the rim worker, after main's EC-1a resampling change failed S17's kernel path on 36 percent of pixels), and 1 round for PR #39 (coordinator). Severity mapping of reviewer labels and the grouping into rounds are EC-A's (estimate). Every first-round review found at least one blocker or major false pass; every finding was fixed or recorded as a known gap with numbers. Not counted: coordinator rulings and recorded revisions."
+  },
+  "cost": {
+    "usd": null,
+    "tokens": null,
+    "basis": "unknown",
+    "source": "Summed from transcript usage records, deduplicated by message id, as input + cache write + cache read + output, snapshot at 2026-11-21 20:53Z (about 575.0 M; PR #39's reviewer adds 1.03 M measured, so about 576 M; the figure is the 575.0 M snapshot): EC-A coordinator 241.2 M, Opus 5.5 workers 271.3 M, Fable 5.2 reviewers 55.5 M, Sonnet 5.5 worker 7.0 M. Cache reads are 558.5 M of it and are billed at a fraction of the input rate, so this is not cost-weighted. Cost in currency was not recorded (unknown)."
+  },
+  "practice_observation": "Independent acceptance authorship paid for itself and was expensive. Every first review found real false passes (10 blocker-level findings over 6 PRs) and the reviewers' mutants and held-out sets became permanent harness controls; first drafts were consistently too weak or too tightly placed, so PRs needed 2 to 5 review rounds, and four repairs merged without a further independent check. Authoring the oracles independently of the plan found three plan defects (fringe judged at reduced size, a stale plan section 6.9 image colour rule, the motion floor applied only to declared minimums); each went back as a recorded plan revision (plan PRs #31, #32, #38) rather than a weakened criterion. Calibration dominated cost (six direction runs, three rim and plate recalibrations of up to 1632 cases; one limit placed against a single implementation's reading had to be recalibrated), and five usage-limit pauses took about half the wall clock; the rim worker was the largest single token consumer. Thread caps and nice kept the shared box usable. Keeping original wording and evidence per revision made changes auditable; reviewers caught one mislabelled strengthening and one row rewritten in place. A repair after acceptance (PR #39) came from a downstream criteria session, which shows the oracles keep finding gaps after merge."
+}
