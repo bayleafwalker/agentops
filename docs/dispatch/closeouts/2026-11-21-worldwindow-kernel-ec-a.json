@@ -91,8 +91,8 @@
   },
   "repairs": {
     "count": 18,
-    "by": "mixed",
-    "note": "16 review-driven repair rounds (12 by the coordinator, 4 by the EC-1a and rim workers; the Sonnet mutant worker did part of PR #17 round 1), 1 repair not driven by review (I12, by the rim worker, after main's EC-1a resampling change failed S17's kernel path on 36 percent of pixels), and 1 round for PR #39 (coordinator). Severity mapping of reviewer labels and the grouping into rounds are EC-A's (estimate). Every first-round review found at least one blocker or major false pass; every finding was fixed or recorded as a known gap with numbers. Not counted: coordinator rulings and recorded revisions."
+    "by": "worker",
+    "note": "All repairs were made inside the delegated outcome; the routing coordinator made none. 16 review-driven repair rounds (12 by the EC-A session itself in its own lead role, 4 by its EC-1a and rim sub-workers; the Sonnet mutant worker did part of PR #17 round 1), 1 repair not driven by review (I12, by the rim worker, after main's EC-1a resampling change failed S17's kernel path on 36 percent of pixels), and 1 round for PR #39 (by the EC-A session). Severity mapping of reviewer labels and the grouping into rounds are EC-A's (estimate). Every first-round review found at least one blocker or major false pass; every finding was fixed or recorded as a known gap with numbers. Not counted: coordinator rulings and recorded revisions."
   },
   "cost": {
     "usd": null,
