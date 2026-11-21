@@ -26,3 +26,5 @@ against the schema.
 | [2026-11-20-worldwindow-kernel-m1.json](2026-11-20-worldwindow-kernel-m1.json) | WorldWindow kernel rework M1: painting-first core at v3b parity, accepted after the human A/B. |
 | [2026-11-20-worldwindow-kernel-m2.json](2026-11-20-worldwindow-kernel-m2.json) | WorldWindow kernel rework M2: fast review loop (preview, review package, promote). |
 | [2026-11-21-worldwindow-kernel-ec-1b.json](2026-11-21-worldwindow-kernel-ec-1b.json) | WorldWindow kernel effect classes EC-1b: shared procedural primitives, accepted by the independent EC-A suite. |
+| [2026-11-21-worldwindow-kernel-ec-a.json](2026-11-21-worldwindow-kernel-ec-a.json) | WorldWindow kernel EC-A: independently authored effect-class acceptance suite, accepted after adversarial review; one repair after acceptance (PR #39). |
+| [2026-11-21-worldwindow-kernel-ec-0.json](2026-11-21-worldwindow-kernel-ec-0.json) | WorldWindow kernel EC-0: effect-class consumer assets (imports, shared maps, ritual patches, storm foregrounds), accepted with named limits. |
