@@ -1,0 +1,83 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "worldwindow-kernel-ec-1b",
+  "closed_on": "2026-11-21",
+  "outcome": "WorldWindow kernel effect classes EC-1b: the shared procedural primitives (worldwindow.procedural: hashing, noise, events, matte, flow, particles, light, depth, palette, discharge) with their documentation, judged by an independently authored acceptance suite (EC-A) including per-primitive budgets at 3440x1440 on one core.",
+  "work_refs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/plans/2026-11-20-effect-classes.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/effects/ec-1b/CRITERIA.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/effects/primitives.md"
+  ],
+  "prs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/16",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/20"
+  ],
+  "acceptance": {
+    "state": "accepted",
+    "criteria": [
+      "EC-A suite on main 7243458, budget excluded: 169 passed, 1 skipped (the scope test, which cannot see a merged change; every file the five EC-1b commits touched is under the owned paths). With the shared harness at b96fbd9: 419 passed, 1 skipped.",
+      "Criterion 9 budgets on main 7243458 under EC-A revision R1, every row judged at load 5.0 on 16 CPUs: fBm 0.0225 s against 0.15 s; two-phase advection 0.0419 s against 0.3 s; 5000 streaks 0.0029 s against 0.05 s; bloom 0.0112 s against 0.05 s; veil 0.0167 s against 0.05 s.",
+      "Implementer's own tests/procedural on main: 258 passed, plus 5 budget tests with -m budget. Forgejo CI green before the #20 merge. The procedural code is unchanged since #20 (empty diff, measured)."
+    ],
+    "note": "Revision R1 changed only the budget estimator (minimum of five group medians, plus the median of all 25 when the load is under the CPU count) and kept every limit. Before R1, median-of-5 runs failed on contention spikes of 1.4-1.9 s while other sessions held the load at 35-105. A 12-batch pinned measurement matched the documented steady-state costs. The coordinator signed off R1 as an oracle fix, not a weakening."
+  },
+  "route": {
+    "complexity_decision": "Effect-class plan route: Terra (loop arithmetic and numerical semantics). The coordinator bound Claude Sonnet sessions with Opus reviewers instead, because Codex did not deliver M1 (Terra) or M2 (Luna) on this repository.",
+    "selected": {
+      "role": "implementer",
+      "harness": "claude-code desktop side session",
+      "model": "claude-sonnet-5-5"
+    },
+    "observed": {
+      "role": "implementer",
+      "harness": "claude-code desktop side session (effort xhigh, auto mode)",
+      "model": "claude-sonnet-5-5",
+      "evidence": "The session tool reported the model. The session implemented, tested, documented and repaired everything itself, with no implementation delegation."
+    },
+    "suboutcomes": [
+      {
+        "role": "acceptance author (independent of the implementer)",
+        "harness": "claude-code desktop side session (EC-A)",
+        "model": "unknown",
+        "evidence": "EC-A wrote acceptance/effects/ec-1b and the shared harness, and later revision R1. Its effort is shared across EC-0, EC-1a and EC-1b and is not apportioned here."
+      }
+    ]
+  },
+  "coordinator_effort": {
+    "minutes": 15,
+    "basis": "estimate",
+    "note": "Briefing, two contract decisions (the whole-frame seam guard and events C2 sequencing), and the budget estimator sign-off. The top-level coordinator also coordinated EC-A, EC-0 and EC-1a at the same time, so this share is approximate."
+  },
+  "elapsed": {
+    "minutes": 136,
+    "basis": "measured",
+    "note": "Session start 2026-11-20 15:45Z to the #20 merge at 18:01Z, including a pause of about 51 min at a usage limit (about 85 min active, estimate). Criterion 9 sign-off came at about 2026-11-21 08:17Z (16 h 32 min from start). The rest was waiting on EC-A's adapter and contract work, a second usage-limit pause of 392 min, and the shared machine never going idle for the budget runs."
+  },
+  "review": {
+    "reviewer": {
+      "role": "code reviewer",
+      "harness": "claude-code Agent subagent (general-purpose, alias opus)",
+      "model": "claude-opus-5-5",
+      "evidence": "Three runs: the first landing (4.1 min, 119,605 tokens), batch 2 (5.1 min, 137,480 tokens), and a re-check of the batch-2 fixes by the same agent resumed (3.4 min, 183,824 tokens; possibly cumulative). The implementer passed the alias 'opus', so the exact model id is inferred."
+    },
+    "independent": true,
+    "same_tier_as_worker": false,
+    "findings": {
+      "blocker": 2,
+      "major": 6,
+      "minor": 21
+    }
+  },
+  "repairs": {
+    "count": 29,
+    "by": "worker",
+    "note": "The implementer addressed every finding: 10 in the first landing (d8361f4), 17 in batch 2 (3a25bb3) and 2 from the re-check (85d6df3). It recalls one of the 17 (analytic Gaussian splats) being closed as a recorded deviation, not a code change. The blockers were in matte.py: extend_background filled wide or tall images with black, and edge_offset had an aperture problem and a lopsided band. Not counted: contract revision C2, the coordinator's whole-frame seam guard, and two rebases of #20."
+  },
+  "cost": {
+    "usd": null,
+    "tokens": null,
+    "basis": "unknown",
+    "source": "Reviewer runs as reported: 119,605 + 137,480 + 183,824 (the third may be cumulative). Implementer session, summed from transcript usage fields (estimate): output 512,338, cache creation 1,223,533, cache read 62,059,629, uncached input 646. Coordinator and EC-A tokens were not captured."
+  },
+  "practice_observation": "Third consecutive Claude Sonnet delivery on this repository. An independent Opus review before each landing again found defects the implementer's own tests had missed, including both blockers, at about 4-5 min and 120-180k tokens per run. EC-A's independent oracle, with the implementer privately wiring its adapter, proved acceptance before EC-A had integrated anything. Costs: the shared 16-core workstation made a 2x-margin median-of-5 budget gate flaky. One oversubscribed calibration run (8 workers x 16 BLAS threads) held the load near 100 for an hour, so worker briefs now require per-process thread caps and contention-robust timing estimators. Mid-flight contract revisions forced rework and two rebases. The Forgejo token's missing write:issue left stale PR bodies."
+}

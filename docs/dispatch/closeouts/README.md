@@ -25,3 +25,4 @@ against the schema.
 | [2026-11-10-lanectl-coordination-020.json](2026-11-10-lanectl-coordination-020.json) | Owner-coordinated native execution and atomic served lane events, with optional immutable service composition. |
 | [2026-11-20-worldwindow-kernel-m1.json](2026-11-20-worldwindow-kernel-m1.json) | WorldWindow kernel rework M1: painting-first core at v3b parity, accepted after the human A/B. |
 | [2026-11-20-worldwindow-kernel-m2.json](2026-11-20-worldwindow-kernel-m2.json) | WorldWindow kernel rework M2: fast review loop (preview, review package, promote). |
+| [2026-11-21-worldwindow-kernel-ec-1b.json](2026-11-21-worldwindow-kernel-ec-1b.json) | WorldWindow kernel effect classes EC-1b: shared procedural primitives, accepted by the independent EC-A suite. |
