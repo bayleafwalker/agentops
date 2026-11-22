@@ -28,3 +28,4 @@ against the schema.
 | [2026-11-21-worldwindow-kernel-ec-1b.json](2026-11-21-worldwindow-kernel-ec-1b.json) | WorldWindow kernel effect classes EC-1b: shared procedural primitives, accepted by the independent EC-A suite. |
 | [2026-11-21-worldwindow-kernel-ec-a.json](2026-11-21-worldwindow-kernel-ec-a.json) | WorldWindow kernel EC-A: independently authored effect-class acceptance suite, accepted after adversarial review; one repair after acceptance (PR #39). |
 | [2026-11-21-worldwindow-kernel-ec-0.json](2026-11-21-worldwindow-kernel-ec-0.json) | WorldWindow kernel EC-0: effect-class consumer assets (imports, shared maps, ritual patches, storm foregrounds), accepted with named limits. |
+| [2026-11-21-worldwindow-kernel-ec-1a.json](2026-11-21-worldwindow-kernel-ec-1a.json) | WorldWindow kernel EC-1a: effect-class contract and gates (typed maps, foreground layers, signals, native-size fringe, motion floor), accepted by the independent EC-A suite. |

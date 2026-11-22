@@ -1,0 +1,78 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "worldwindow-kernel-ec-1a",
+  "closed_on": "2026-11-21",
+  "outcome": "WorldWindow kernel EC-1a: the effect-class contract and gates (typed maps, named cycles, hooks, discovery; foreground layers; declared signals and the coherence gate; image foregrounds at every output, native-size fringe, visible-motion floor), judged by the independently authored EC-A suite.",
+  "work_refs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/plans/2026-11-20-effect-classes.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/effects/ec-1a/CRITERIA.md"
+  ],
+  "prs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/14",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/18",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/23",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/33",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/35"
+  ],
+  "acceptance": {
+    "state": "accepted",
+    "criteria": [
+      "Full acceptance/effects/ec-1a on main ec060275 (measured, Python 3.13, thread-capped, nice): run 1 was 203 passed, 1 failed, 1 skipped in 790 s; run 2 was 204 passed, 0 failed, 1 skipped in 1067 s. The one failure, test_wall_clock_event_only_stream_fails_determinism, is a flaky EC-A fixture (a 1-pixel bolt column can fall outside the layer region; 3 failures in 30 isolated repeats, about 10 percent), not a kernel defect; it is fixed by EC-A PR #39. The skip is the scope test, which cannot see a merged change on main.",
+      "Scope substitute check by hand over the 16 commits of the five PRs (21 files, measured): one file lay outside criterion 12's OWNED list, tests/test_image_foreground.py, a regression test file added in PR #33. EC-A is adding it to OWNED. The criterion would have failed on the #33 branch as it stood; it was never run there.",
+      "Earlier (measured): acceptance/m1 (182 tests, exit 0) on #14, #18, #23 and #33's final code; hot-pool review digest unchanged on each of the five PRs, and for #33 all 1152 review and 1152 smoke frames byte-identical to the merge base; EC-A criteria 8, 10 and 12 (66 tests) passed against f583eb8 before #35 merged. Rest-state error on EC-0's storm foregrounds fell from 33/57/36/46 to 1/2/2/3 max codes (arch, lantern-desk, lantern-post, pool). Forge CI succeeded on each PR run."
+    ],
+    "note": "Merge commits 35ac1f7, 28fa508, e17ee9b, fc498ba (PR #33, merged 2026-11-21 11:02Z) and f583eb8 (PR #35, 12:54Z). Push-to-main CI for #18 shows a failure of unknown cause (the PR run of the same SHA succeeded). PR #33's first CI run failed on an unrelated timing test (tests/test_watch.py) and passed on re-trigger. PR bodies could not be edited (the Forgejo token lacks write:issue); #33's body names a pre-rebase SHA."
+  },
+  "route": {
+    "complexity_decision": "Coordinator judgement: Claude Sonnet side session implements, Opus reviewers review. No Luna or Terra route is recorded in the facts for this outcome.",
+    "selected": {
+      "role": "implementer",
+      "harness": "claude-code desktop side session",
+      "model": "claude-sonnet-5-5"
+    },
+    "observed": {
+      "role": "implementer",
+      "harness": "claude-code desktop app (Code tab, Agent SDK harness 2.1.325 then 2.1.328, effort xhigh, auto mode), worktree ec-1a-contract-f85acd",
+      "model": "claude-sonnet-5-5",
+      "evidence": "Reported by the transcript. The session wrote, tested, documented, repaired, rebased, merged and reported everything itself; no implementation delegation. No Luna, Terra, OpenCode Go or Jev call in the transcript."
+    },
+    "suboutcomes": []
+  },
+  "coordinator_effort": {
+    "minutes": 45,
+    "basis": "estimate",
+    "note": "Coordinator-supplied. Rulings on fringe at native size (plan PR #31), the motion floor for every non-M1 layer (B6 option a1, plan PR #32) and the image-foreground rule (plan PR #38)."
+  },
+  "elapsed": {
+    "minutes": 1269,
+    "basis": "measured",
+    "note": "2026-11-20 15:45Z to the #35 merge 2026-11-21 12:54Z (21 h 09 min). Merges at 1 h 48 min (#14), 6 h 06 min (#18), 7 h 13 min (#23), 19 h 17 min (#33), 21 h 09 min (#35). Gaps over 30 min total 15 h 03 min, of which usage-limit pauses 5 h 46 min; at most 6 h 06 min active (estimate, includes about 30 min of CI queue per PR). The session's later idle time and cleanup are not counted."
+  },
+  "review": {
+    "reviewer": {
+      "role": "adversarial reviewer",
+      "harness": "claude-code Agent subagents (general-purpose, model opus)",
+      "model": "claude-opus-5-5",
+      "evidence": "Four agents, 8 runs (the fourth resumed four times by SendMessage), 155 tool uses, 36.0 min reported wall time; none wrote the reviewed code and all edited nothing. The resumed agent carried its earlier context. Severities High, Medium, Low were mapped to blocker, major, minor by the session (estimate). Reviews of parts 1 to 3 had no second round; the resample work was re-reviewed four times."
+    },
+    "independent": true,
+    "same_tier_as_worker": false,
+    "findings": {
+      "blocker": 2,
+      "major": 9,
+      "minor": 31
+    }
+  },
+  "repairs": {
+    "count": 7,
+    "by": "worker",
+    "note": "Seven repair commits by the EC-1a session (35ac1f7, 8430044, e17ee9b, 26e7dd7, f6395fe, fc498ba, f583eb8); the routing coordinator made none. The image foreground took three designs (absolute target, delta, then a cut's own form). Of 42 findings all but two were fixed; the two exceptions went to EC-A or were accepted and documented. Per-finding counts for parts 1 to 3 were not re-counted (estimate). Not counted: two rebases of #33 and the coordinator's mid-flight direction changes (native fringe, floor, fringe_for_scene), implemented as scope changes. The two Highs: part 2's above-check rejected valid scenes; an opaque image over glass or a patch showed what lay beneath it (up to 93 codes)."
+  },
+  "cost": {
+    "usd": null,
+    "tokens": null,
+    "basis": "unknown",
+    "source": "Implementer main thread (estimate, summed from 674 assistant usage records, deduplicated): input 1,414; output 769,582; cache creation 2,042,956; cache read 140,365,196. Reviewer subagents as reported: 628,017 tokens if the resumed agent's figures are cumulative, 1,334,646 if per run (unknown which). Coordinator and EC-A tokens, CI runner time and currency cost were not captured."
+  },
+  "practice_observation": "The rest-state error EC-0 saw was fixed in the kernel (image foregrounds built from the native render, PR #33), not by shaping assets. EC-1a's own acceptance tests failed by design against the kernel until it implemented plan revisions #31 and #32, which worked as intended. EC-1a also caught a scope gap: PR #33's tests/test_image_foreground.py is missing from criterion 12's OWNED list, and EC-A is adding it. An independent Opus review (4 to 8 min, 115k to 230k tokens each) before every merge found real defects the implementer's tests missed, including both Highs, and re-running the same reviewer on each redesign caught the second High before merge. Costs: the image-foreground design took three attempts because each fix was judged only on the cases the previous review had named; mid-outcome direction changes forced rework; a 30 min runner queue and a flaky timing test cost two rebases and about two hours; EC-A's wall-clock fixture failed a correct kernel about one run in ten (fixed by PR #39); the Forgejo token cannot edit PR bodies."
+}
