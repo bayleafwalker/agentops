@@ -1,0 +1,76 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "worldwindow-kernel-ec-3",
+  "closed_on": "2026-11-23",
+  "outcome": "WorldWindow kernel EC-3: precipitation, rain@1 in air and glass modes with the kernel's glass-region guard and the rain and glass studies, judged by the independent EC-A EC-3 criteria; then a rework after the wave-1 picture review (outdoor region, fall speeds, ring outlines, bead size).",
+  "work_refs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/plans/2026-11-20-effect-classes.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/effects/ec-3/CRITERIA.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/effects/rain.md"
+  ],
+  "prs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/56",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/68"
+  ],
+  "acceptance": {
+    "state": "accepted",
+    "criteria": [
+      "First merge, PR #56, final code (measured): fast tier 253 tests, 0 failed, 2 skipped (c14 flash-above-thunder: no thunder layer in either study), 20 min 44 s; budget 4 passed at load about 6; slow tier 60 tests, 0 failed, 4 skipped by design; repo tests 718 passed. All four review packages passed every gate (seam-step 0.914 to 0.944 and seam-acceleration 0.923 to 0.960 against 1.1; d-pcr 0.2153, 0.2217 and 0.5979 against 0.05). After the rebase: repo tests 733 passed and the c01, c08, c09, c10, c13, c14 subset 26 tests, 0 failed, 2 skipped; the full tiers and the review packages were not rerun on the rebased code.",
+      "Rework, PR #68 (measured, on af863e0): fast 253 tests, 0 failed, 3 skipped (2 thunder by design, 1 load skip later rerun and passed); slow 60, 0 failed; budget 4 passed; no criterion needed a floor revision or exemption; d-pcr 0.1013 (rain), 0.0874 and 0.2887 (glass) against 0.05. On the final tree (main 2c87f6b): repo tests 1021 passed; the same 26-test subset 0 failed, 2 skipped; both smoke packages 0 of 1152 frames differing with equal gates; hot-pool digest unchanged.",
+      "Look, from the wave-1 independent picture review (judged frames, differences and kymographs, no playback): rain air needed rework, glass could ship with notes. A read-only second look after the rework (stills only) judged all five findings fixed."
+    ],
+    "note": "PR #56 merged fast-forward at e145770 (2026-11-22 17:00Z) and PR #68 at 0b515de (2026-11-23 16:56Z), both with CI success on the merged head. The wave-1 findings fixed in #68: rain inside the room (region is now EC-0's shared outdoor mask), streak sizzle and inverted parallax (fall 145/88/50, far/near 0.32), ripple rings drawn as discs, glass beads 5 to 10 times too big. Open or recorded: rain@1 has no human review decision (the review records carry decision null); EC-0's shared mask has a straight vertical edge at x 440.6, y 270-345 (review size) and a 117 px notch, both for EC-0's deferred asset pass; path splashes read as bright dots; bead elongation, kinked slide wander and rings that shrink with distance need class changes and were not done; the glass slide magnitude is a recorded gap judged by human review and the plan's glass values are a sketch (coordinator ruling, option a). The first merge's glass study had no EC-0 base motion because the maps were not on main yet; the rework closed that gap. PR bodies could not be edited (the Forgejo token lacks write:issue), so #56's body carries pre-rebase tables."
+  },
+  "route": {
+    "complexity_decision": "Card route Luna; a Sonnet 5.5 session delivered, so this outcome does not test Luna. No deterministic rule or classifier answer is recorded in the facts. The coordinator routed the rework after the wave-1 picture review.",
+    "selected": {
+      "role": "implementer",
+      "harness": "claude-code desktop side session",
+      "model": "Luna (card route)"
+    },
+    "observed": {
+      "role": "implementer",
+      "harness": "claude-code desktop app (Code tab, Agent SDK harness), worktree ec-3-rain-5fa927",
+      "model": "claude-sonnet-5-5",
+      "evidence": "The brief named the card route and the session model; the Co-Authored-By trailers on the merged commits read Claude Sonnet 5.5 (git log). No Luna, Terra, OpenCode Go, Jev or agentops dispatch run: no cheaper native worker session was started (measured). The session designed, implemented, repaired and merged everything itself."
+    },
+    "suboutcomes": []
+  },
+  "coordinator_effort": {
+    "minutes": null,
+    "basis": "unknown",
+    "note": "A handful of coordinator messages and one from EC-1a during the first merge (exact count unknown). Rulings touching this outcome: acceptance sign-offs S4, S13, S17 and D8 and open questions 1 to 9 (option a for the glass values), open question 10 option a (the glass-region guard made by EC-3 as integration owner for that one change), the wave-1 rework routing, and queue release."
+  },
+  "elapsed": {
+    "minutes": 1957,
+    "basis": "measured",
+    "note": "First transcript event 2026-11-22 08:19:55Z to the PR #68 merge 2026-11-23 16:56:48Z (32 h 37 min). First merge: 520 min (8 h 40 min) after the start, including a 174 min usage-limit gap (09:40 to 12:35Z, measured) and about 2 h between opening PR #56 and its merge on two CI runs, a rebase and a 10 min 35 s subset run. Rework: first commit authored 2026-11-22 19:28Z to merge, 1,288 min (measured); the rework's own wall clock is unknown in the facts (usage-limit pauses, merge queue). Active time is at most 5 h 46 min for the first merge (estimate)."
+  },
+  "review": {
+    "reviewer": {
+      "role": "independent code and look reviewers",
+      "harness": "claude-code Agent subagents (read-only)",
+      "model": "claude-opus-5-5",
+      "evidence": "First merge: three read-only Opus 5.5 subagents (model read from their transcripts, measured): code review 1 gave 0 blocker, 3 major, 6 minor; code review 2 gave 1 blocker (list-valued cycles passed validation and crashed), 2 major, 6 minor. A look review of stills and clips ran three rounds with unlabelled severities (not counted). Rework: a second read-only Opus subagent (model id not recorded), told what had changed, so not an independent review of the wave-1 kind; it named 2 known limits (counted as minor). Counts are the worker's tally from the hand-backs; the wave-1 picture review that triggered the rework (five findings, severities not labelled) is not counted. No reviewer changed files."
+    },
+    "independent": true,
+    "same_tier_as_worker": false,
+    "findings": {
+      "blocker": 1,
+      "major": 5,
+      "minor": 14
+    }
+  },
+  "repairs": {
+    "count": 6,
+    "by": "worker",
+    "note": "Estimate of review-driven repair rounds: code review 1 fixes, code review 2 fixes, three look rounds, and the post-merge rework after the wave-1 picture review. All by the worker session; the coordinator made none (measured from git log). Fixed from code review: curtain.tile other than 1 gave the wrong rate, union versus intersection of panes, glass intensity gate popped slow beads, list-valued cycles crash, beads never reaching full opacity, unbounded bead radius. Not counted: rebases."
+  },
+  "cost": {
+    "usd": null,
+    "tokens": null,
+    "basis": "unknown",
+    "source": "First merge only. Implementer main thread through about 14:47Z on 2026-11-22 (measured, deduplicated by message id, 487 messages): input 1,014; output 411,237; cache creation 1,314,420; cache read 109,030,854. Reviewers (measured): code review 1 input 38, output 20,206, cache creation 87,553, cache read 1,845,857; look review 50, 17,380, 236,540, 1,411,069; code review 2 42, 19,156, 78,299, 1,875,005. The rework's second look reported 79,585 tokens. Rework session tokens, coordinator tokens, CI runner time and currency cost were not recorded."
+  },
+  "practice_observation": "Read-only Opus review caught real defects the worker's tests had not (the list-cycles crash, the intensity pop, union versus intersection, unbounded memory). The first merge passed every gate and 253 acceptance tests, yet the wave-1 picture review found rain inside the room, sizzling streaks, inverted parallax, disc rings and marble beads, which the criteria cannot see; the look needed three rounds before merge and a rework after it, because the plan's sketch values read badly at review size. Costs: editing src while a review or acceptance run was going invalidated runs several times (6 to 25 min each; freeze the commit first); a full shared filesystem corrupted one rework round and cost a rebuild; a hand-cut room mask was thrown away when EC-0's shared mask landed. The card routed Luna and a Sonnet session delivered, so this does not test Luna."
+}

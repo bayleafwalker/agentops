@@ -1,0 +1,83 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "worldwindow-kernel-ec-1a-seam-floor",
+  "closed_on": "2026-11-22",
+  "outcome": "WorldWindow kernel EC-1a addendum: the seam no-motion floor leaves out events and flicker layers (one 8-bit step averaged over the union of the layers that are not episodic), with EC-A's independent criterion 8 R10 and criterion 12 R11, so correct mostly-still thunder, neon and fire layers pass the seam gates while seam-defect controls still fail.",
+  "work_refs": [
+    "docs/dispatch/closeouts/2026-11-21-worldwindow-kernel-ec-1a.json (earlier attempt record for the same outcome)",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/plans/2026-11-20-effect-classes.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/effects/ec-1a/CRITERIA.md"
+  ],
+  "prs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/47",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/54"
+  ],
+  "acceptance": {
+    "state": "accepted",
+    "criteria": [
+      "Kernel PR #54 (measured by the worker, per the PR body; thread caps 1, nice): criterion 8 R10, 29 tests passed; the criterion 12 scope test passes with the plan diff limited to the revision paragraph; acceptance/effects/ec-1a not slow 223 passed, 0 skipped; criterion 1 hot-pool 7 passed; acceptance/m1 182 passed; repo tests 687 passed. Hot-pool gate report and every frame identical to main at smoke and review; review digest unchanged.",
+      "The 15 new kernel tests, run against origin/main's gates.py: 8 fail and 7 pass (the 7 are controls for what must not change). The thunder study's base motion alone (ripple@1 and cascade@1 on hot-pool maps) reads interior q99 2.80e-5 against a floor of 1.46e-5 once episodic layers are left out (1.9x), seam ratios 0.985 and 0.972 at review.",
+      "Criterion PR #47 (EC-A, acceptance only): the 29 tests were proved against main (25 pass; the 4 pass-cases fail with inf as intended), EC-A's prototype of the rule (29 of 29) and EC-1a's uncommitted implementation (29 of 29). The reviewer's mutant kernels found six wrong rules that passed all 20 original tests; round 2 closed them with no findings."
+    ],
+    "note": "Both PRs merged fast-forward on 2026-11-22: #47 at 55efbf6 (12:36Z) and #54 at 5e2bb99 (15:07Z). Coordinator ruling: the floor is revised and studies get no extra base motion. The coordinator approved EC-1a's design (the union covers only layers declaring neither events nor flicker); EC-A kept the flicker weight at 0 (64 near-still cases probed: every defect that reaches 8 bits already fails through the ratio, and weight 0.1 fails a correct near-still flicker layer). An all-episodic scene has no floor and passes only when its wrap is also exactly 0; any non-episodic layer keeps the old guard; fire@1 declares flicker but moves continuously, and a near-still fire still fails through motion-in. The plan's section 8.1 keeps its original bullet and gains a dated revision paragraph. Left for owners: acceptance/m1 R3 stands, and EC-0's README sentence and the EC-6 and EC-7 criteria's K3 sections follow in their own files."
+  },
+  "route": {
+    "complexity_decision": "Coordinator judgement: the EC-1a worker implements the gate change, EC-A authors the acceptance revision independently, and reviewers on a different model review each. No Luna or Terra route is recorded in the facts.",
+    "selected": {
+      "role": "implementer",
+      "harness": "claude-code desktop side session",
+      "model": "claude-sonnet-5-5"
+    },
+    "observed": {
+      "role": "implementer",
+      "harness": "claude-code desktop side session",
+      "model": "claude-sonnet-5-5",
+      "evidence": "The Co-Authored-By trailers on f92c922 and 5e2bb99 read Claude Sonnet 5.5 (git log). The worker's transcript is not among the facts, so harness version, effort and permission mode are unknown."
+    },
+    "suboutcomes": [
+      {
+        "role": "EC-A worker: criterion 8 R10 tests, proved against three kernels (PR #47)",
+        "harness": "claude-code Agent subagent",
+        "model": "claude-opus-5-5",
+        "evidence": "About 63 min, 345k tokens, 114 tool uses, 3 rounds (EC-A's facts; the model is stated there as Opus)."
+      }
+    ]
+  },
+  "coordinator_effort": {
+    "minutes": null,
+    "basis": "unknown",
+    "note": "Not recorded. Rulings and actions: the floor revision, approving EC-1a's design, the flicker-weight condition, adding the fire-like case to the criterion, and queue handling."
+  },
+  "elapsed": {
+    "minutes": 450,
+    "basis": "measured",
+    "note": "First commit of criterion PR #47 (authored 2026-11-22 07:38Z) to the kernel PR #54 merge 15:07:29Z (7 h 30 min). The kernel change began after #47 merged: #54's first commit was authored at 12:36:43Z and merged 151 min later. The design note that preceded both is undated in the facts, so earlier work is unknown. Active time is unknown."
+  },
+  "review": {
+    "reviewer": {
+      "role": "independent reviewers",
+      "harness": "claude-code Agent subagents (read-only)",
+      "model": "claude-opus-5-5 reviewed PR #54; claude-fable-5-2 reviewed PR #47",
+      "evidence": "PR #54: an Opus subagent, read-only, no important findings, 2 minor and 1 nit, all addressed in the second commit (the exact-0 pass was keyed on floor == 0, which also held when a non-episodic layer's region has no pixel). PR #47: a Fable reviewer, 2 rounds, about 15 min and 174k tokens in all; round 1 had 3 major, 5 minor and 1 nit, all gaps where a wrong kernel passed every test; round 2 none. Nits count as minor. The reviewer of #54 did not verify the hot-pool acceptance or a real fire, thunder or neon scene."
+    },
+    "independent": true,
+    "same_tier_as_worker": false,
+    "findings": {
+      "blocker": 0,
+      "major": 3,
+      "minor": 9
+    }
+  },
+  "repairs": {
+    "count": 2,
+    "by": "worker",
+    "note": "One repair commit on #54 (5e2bb99, the review's exact-0 finding, with a test that fails on the reviewed code) and one repair round on #47 (55efbf6, closing the six wrong-kernel gaps). The routing coordinator made none."
+  },
+  "cost": {
+    "usd": null,
+    "tokens": null,
+    "basis": "unknown",
+    "source": "EC-A's facts: criterion worker 345k tokens (reported) and the Fable reviewer 174k in all. The EC-1a worker's tokens and the Opus reviewer's were not recorded. Currency cost and CI runner time unknown."
+  },
+  "practice_observation": "Splitting the gate change (EC-1a) from the criterion (EC-A) worked as the ruling intended: the reviewer's mutant kernels found six wrong rules that passed all 20 original tests, so the criterion was strengthened before the kernel change was judged by it, and the kernel review found one real gap (the exact-0 pass also held with an empty-region continuous layer). The design note's measurement, that a study's own base motion clears its own floor by 1.9 times once episodic layers are left out, turned a request for extra study motion into a gate revision. The change is small (+284 -13 in the kernel PR) and landed on one CI run."
+}
