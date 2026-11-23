@@ -1,0 +1,76 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "worldwindow-kernel-ec-4",
+  "closed_on": "2026-11-22",
+  "outcome": "WorldWindow kernel EC-4: fire, fire@1 (flicker, tongues, glow, spill) and the storm fire study, judged by the independent EC-A EC-4 criteria; then a rework after the wave-1 picture review (flicker depth, post spill edges, a pool-lantern emitter) and a post-merge independent re-check on the new pool matte.",
+  "work_refs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/plans/2026-11-20-effect-classes.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/effects/ec-4/CRITERIA.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/effects/fire.md"
+  ],
+  "prs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/53",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/64"
+  ],
+  "acceptance": {
+    "state": "partially-accepted",
+    "criteria": [
+      "PR #53 (measured, thread caps 1, nice 10): fast and budget 50 passed (47 fast, 3 budget), slow 8 passed in 13 min 22 s, tests/effects/fire 74 passed, repo tests 747 passed. Study gates passed: seam-step 0.609, seam-acceleration 0.650, motion-in desk 4.21e-4 (floor 1.00e-4), post 2.92e-4 (floor 2.50e-4). Oracles: independence 0.089, spill coupling 0.9953 or more, per-emitter HF 0.0049 to 0.0069 (limit 0.01). Hot-pool digest unchanged; frames byte-identical to the merge base at review and smoke.",
+      "Rework, PR #64 (measured): all gates passed; motion-in desk 6.47e-4 (floor 9.79e-5), post 2.473e-4 (floor 2.407e-4, a 2.7 % margin), pool 2.565e-4 (floor 2.155e-4). Oracles passed: per-emitter HF 0.0077 to 0.0087, independence |max| 0.122, spill coupling 0.9946 or more, never-out 0.792 or more, pool tongues 94 % upward. Fast 50 passed, slow 8 passed, repo tests 883, fire unit tests 74 plus the docs test.",
+      "Post-merge re-check on the new pool matte (reported by an Opus 5.5 subagent, not re-run by the worker): no blocker. Pole, bush and lantern frame rigid (largest change 3/255 on soft matte edges), no fringe on the new matte edges, no grey plate through the panes, flame luminance does not strobe."
+    ],
+    "note": "Merged fast-forward: #53 at 6671bbd (2026-11-22 18:34Z, CI run green in 5 min 59 s) and #64 at 1902d9e (2026-11-22 22:35Z, CI green in 6 min 5 s). The date of the post-merge re-check is not recorded; it followed #64. Criterion 7 (budget plain median) is not signed off: the box was oversubscribed (load 16 to 30 at #53, about 20 on 16 cores at #64), so the plain median that signs it could not be judged. The coordinator's loaded re-run after the 2026-11-23 reboot read fire at 0.0015 to 0.0030 s against 0.15 at review and 0.013 to 0.022 s against 2.0 at 3440 wide (measured, 10 to 100 times inside the limits); a quiet-box sign-off run is still owed. Coordinator rulings kept the cells unchanged (criterion 17 binds; a doubling fails per-emitter HF from x1.25) and corrected plan section 7.6 to cells/(2 x loop_s), 1.0, 1.6 and 2.4 Hz at 48 s. The re-check's one minor, red clipping at flicker peaks (27 to 28 % of flame pixels at R of 254 or more against 0.9 % in the source), was routed to the acceptance owner EC-A4 as a new oracle bound, so no fix PR. Also recorded: the pool glass flare (minor). The study's review record carries decision hold, awaiting human review."
+  },
+  "route": {
+    "complexity_decision": "Card route Luna; the coordinator-started Sonnet 5.5 session did all design, implementation and repairs. The worker's judgement: one tightly coupled class plus its maps, so decomposition would have cost more than it saved. No deterministic rule or classifier answer recorded.",
+    "selected": {
+      "role": "implementer",
+      "harness": "claude-code desktop side session",
+      "model": "Luna (card route)"
+    },
+    "observed": {
+      "role": "implementer",
+      "harness": "claude-code desktop app (Code tab, Agent SDK harness)",
+      "model": "claude-sonnet-5-5",
+      "evidence": "The worker's facts state the session model; the Co-Authored-By trailer on PR #64's commit reads Claude Sonnet 5.5 (git log). No Luna, Terra, OpenCode Go, Jev or agentops dispatch run; no cheaper native worker was used."
+    },
+    "suboutcomes": []
+  },
+  "coordinator_effort": {
+    "minutes": null,
+    "basis": "unknown",
+    "note": "Not recorded. Rulings touching this outcome: EC-4 S6 sign-off, the flicker-rate decision (option 1) with the section 7.6 correction, the wave-1 rework routing, and merge-queue handling (four rebases onto a moving main)."
+  },
+  "elapsed": {
+    "minutes": 856,
+    "basis": "measured",
+    "note": "Session transcript start 2026-11-22 08:20Z to the PR #64 merge 22:35:53Z (14 h 16 min). PR #53 merged at 18:34:15Z, 614 min after the start; the merge race took about 3 h after the first green run because the single CI runner starts jobs 20 to 60 min after a push and main moved four times. Includes a usage-limit pause of unknown length and waits on a loaded box; active time is unknown. The rework's start is not recorded."
+  },
+  "review": {
+    "reviewer": {
+      "role": "independent reviewer",
+      "harness": "claude-code Agent subagents (model setting opus)",
+      "model": "claude-opus-5-5",
+      "evidence": "Review 1 (PR #53): one Opus 5.5 subagent, 27 tool uses, 106,027 tokens, 308 s (harness report); verdict ACCEPT on the look; 2 major (spill relight linear in 2^ev - 1; flicker at half the rate the plan names, a plan error) and 3 minor, 1 authoring minor and 1 nit group. Rework: two review rounds (97,742 and 107,699 tokens, 410 s and 108 s reported) whose fixes were desk window feathering, post spill islands and a spill floor; their finding counts were not recorded and are not in the totals. Post-merge re-check (Opus 5.5, reported): no blocker, 1 minor. Reviewer labels as reported; the nit group counts as one."
+    },
+    "independent": true,
+    "same_tier_as_worker": false,
+    "findings": {
+      "blocker": 0,
+      "major": 2,
+      "minor": 6
+    }
+  },
+  "repairs": {
+    "count": 4,
+    "by": "worker",
+    "note": "Estimate: the review round-1 fixes (spill relight, docs, tests); tongue speed and 2 octaves after the stretched control failed; the post lamp re-authored and its spill widened after fire-post motion-in and spill count failed; the PR #64 rework. All by the worker session. Two authoring changes were prompted by a failing gate (tongues, post lamp); the worker recorded design motivations, but a reader should know a gate prompted them. The post lamp's motion-in margin was 17 % at first merge and is 2.7 % after the rework."
+  },
+  "cost": {
+    "usd": null,
+    "tokens": null,
+    "basis": "unknown",
+    "source": "Subagent tokens as reported by the harness: 106,027 (review 1), 97,742 and 107,699 (rework rounds); the post-merge re-check's are not recorded. The worker session's own token total and currency cost were not available to it."
+  },
+  "practice_observation": "A separate reviewer reading frames and traces found the relight defect and the plan's two-fold flicker-rate error that all 58 acceptance tests and 68 unit tests missed; the plan error went back as a recorded plan correction instead of a doubled-cells change that criterion 17 would have failed. The wave-1 picture review then asked for a rework the gates could not (flicker depth, hard spill edges, no pool-lantern emitter), and the post-merge re-check found red clipping that no oracle bounds. Costs: the merge race behind a single CI runner took about 3 h with four rebases, and the criterion 7 sign-off is still owed because the shared box was oversubscribed. The card routed Luna and a Sonnet session delivered, so this does not test Luna."
+}

@@ -1,0 +1,74 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "worldwindow-kernel-ec-a-family-kit",
+  "closed_on": "2026-11-22",
+  "outcome": "WorldWindow kernel EC-A addendum: the effect families' shared acceptance kit acceptance/effects/eca/family.py, one implementation of each helper that EC-2, EC-3 and EC-A4's EC-4 to EC-7 kits carried as drifting copies, with EC-2 and EC-3 moved onto it with identical per-test outcomes; acceptance files only, no kernel code.",
+  "work_refs": [
+    "docs/dispatch/closeouts/2026-11-21-worldwindow-kernel-ec-a.json (earlier attempt record for the same outcome)",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/effects/eca/family.py"
+  ],
+  "prs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/45"
+  ],
+  "acceptance": {
+    "state": "accepted",
+    "criteria": [
+      "EC-2 and EC-3 before and after (measured by the worker; full suites on main 9bc657f against the branch; thread caps 1, nice 10): identical per test id. EC-2: 135 passed, 108 failed, 1 skipped, 15 errors on both; EC-3: 161 passed, 16 failed, 5 skipped, 102 errors on both. Messages and collected ids are identical after path normalisation. The failures are classes not yet delivered; every stand-in study test passes on both sides.",
+      "Harness fast tier: 391 passed on main and 409 on the branch (18 new family tests, 19 after the review fixes, all passing); EC-1a criterion 8: 14 passed before and after the event-key refactor; EC-4 and EC-7 give the same outcomes per test id; EC-5 and EC-6 collect 189 tests. The worker broke each tested helper on purpose (8 breaks) and the self-tests caught all 8.",
+      "Independent check (reported by the Fable reviewer): it probed the old and new code side by side and reran the stand-in s08 and s09 tests (72 passed, 4 skipped as designed). Evidence limit stated in the PR: every EC-2 and EC-3 class test stops at require_class on both sides, so equivalence rests on the stand-in tests, the per-id comparison and the probes."
+    ],
+    "note": "PR #45 merged fast-forward at 533b997 on 2026-11-22 08:01Z, touching acceptance/effects only. Two ride-along revisions with original wording kept: CALIBRATION section 4 K7 (thunder's pending entry now names the plan's unnumbered bolt threshold) and EC-1a criterion 12 R9 (tests/test_image_foreground.py joins the owned list, by coordinator ruling). The EC-4 to EC-7 kits were left unchanged; EC-A4 migrates them from the PR's mapping table in its own PR. Not changed, with reasons: the kit's EC-A4 half is not run by a test in this PR (the reviewer found it sound; EC-4 to EC-7 run it on migration), and nine self-test mutants survive the fast harness (only the slow s01 and s09 suites catch them)."
+  },
+  "route": {
+    "complexity_decision": "Coordinator judgement inside the EC-A session: one implementation worker for a mechanical merge of three kits, then an independent reviewer. The coordinator's ruling allowed an Opus reviewer if Fable stayed at its usage limit; Fable was used. No Luna or Terra route recorded.",
+    "selected": {
+      "role": "implementer",
+      "harness": "claude-code Agent subagent",
+      "model": "claude-opus-5-5"
+    },
+    "observed": {
+      "role": "implementer",
+      "harness": "claude-code Agent subagent",
+      "model": "claude-opus-5-5",
+      "evidence": "EC-A's facts name one Opus worker; the Co-Authored-By trailers on the kit commits read Claude Opus 5.5 (git log). About 92 min, 232k tokens, 219 tool uses (reported). The EC-A coordinator added the K7 and R9 ride-alongs and the D5 wording and made the repair round."
+    },
+    "suboutcomes": []
+  },
+  "coordinator_effort": {
+    "minutes": null,
+    "basis": "unknown",
+    "note": "Not recorded. The EC-A coordinator wrote the kit's inventory and mapping, the ride-along revisions and the repair round; the routing coordinator approved requests 1, 3 and 4 from the EC-2 and EC-3 acceptance session and ruled on R9."
+  },
+  "elapsed": {
+    "minutes": 384,
+    "basis": "measured",
+    "note": "First kit commit authored 2026-11-22 01:37Z to the PR #45 merge 08:01:18Z (6 h 24 min). The worker's own time was about 92 min (reported); the kit was to start once the EC-2 and EC-3 acceptance PRs merged, and the time of that and any earlier work is unknown."
+  },
+  "review": {
+    "reviewer": {
+      "role": "independent reviewer",
+      "harness": "claude-code Agent subagent",
+      "model": "claude-fable-5-2",
+      "evidence": "A Fable reviewer that wrote none of the code and edited nothing; the first run was stopped at the usage limit and the rerun took about 25 min and 272k tokens (reported). Verdict: pass after fixes, no blocker in the code; 2 major (both in the mapping table: three family_kit rows wrong or incomplete, and no rows for the generic duplicates in the EC-5 and EC-6 kits) and 6 minor (3 fixed in the head commit, 3 left with reasons)."
+    },
+    "independent": true,
+    "same_tier_as_worker": false,
+    "findings": {
+      "blocker": 0,
+      "major": 2,
+      "minor": 6
+    }
+  },
+  "repairs": {
+    "count": 1,
+    "by": "mixed",
+    "note": "One repair round for the review's findings, made by the EC-A coordinator (the mapping-table fixes and minor code fixes, in the head commit 533b997). The implementer's own repairs, not review-driven: a staged deletion committed by mistake was redone, and an s08 test rename was reverted to keep its id stable."
+  },
+  "cost": {
+    "usd": null,
+    "tokens": null,
+    "basis": "unknown",
+    "source": "As reported by the harness: worker 232k tokens, 219 tool uses; reviewer rerun 272k tokens (the first, interrupted run is not recorded); coordinator tokens, currency cost and CI runner time unknown."
+  },
+  "practice_observation": "The per-test-id junit comparison against main, with the reviewer's old-versus-new probes, was the check that carried the claim: the class tests stop at require_class, so they alone prove nothing. The reviewer's two majors were both documentation errors in the mapping table that EC-A4 migrates from, which shows the table, not the code, was the risky part. Folding three drifting kits into one cost about 6 h of wall clock and a Fable usage-limit interruption, and left nine self-test mutants alive until the slow suites run."
+}

@@ -1,0 +1,76 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "worldwindow-kernel-ec-0-rework",
+  "closed_on": "2026-11-22",
+  "outcome": "WorldWindow kernel EC-0 follow-ups after acceptance: protect crossings (the ritual and storm motion maps kept out of the kernel's protect gate, PR #61), the shared storm outdoor mask with the bush and pole in the pool cut and sky carves after the wave-1 picture review (PR #63), and the repaired unlit-sigil patch after EC-6's review (PR #66).",
+  "work_refs": [
+    "docs/dispatch/closeouts/2026-11-21-worldwindow-kernel-ec-0.json (earlier attempt record for the same outcome)",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/effects/ec-0/CRITERIA.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/scenes/long-chant-ritual/README.md"
+  ],
+  "prs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/61",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/63",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/66"
+  ],
+  "acceptance": {
+    "state": "accepted",
+    "criteria": [
+      "PR #61 (measured): the protect gate reads 0 codes at review, smoke, 1280x549 and 1915x821 for the ritual (was 108, 76, 108 and 117); cascade@1 on the new storm maps moves 0 protected pixels; full repo pytest 883 passed; the EC-0 suite 105 passed at the 6671bbd head, an earlier rebase.",
+      "PR #63 (measured): maps/shared/outdoor.png is 881,176 px (56.0 % of the frame); the pool cut now holds the bush and the lantern pole, support 20,654 px (was 7,974), fringe 0.0185 (limit 0.05), alignment 0.108 px native and 0.254 px at one third (limit 0.5), protect error 0 codes. On scratch renders, steam over the bush fell from 0.5 to 3.1 codes to 0.01, over the pole from up to 32.7 to at most 2.2, clouds over the firs from about 9 to 0.3, rain over what is not open air from 0.4 to 1.9 to 0.05. EC-0 suite and harness 105 passed; repo pytest 883; worldwindow validate passes.",
+      "PR #66 (measured): spindle-foot smear box mean luma 69.1 to 61.6 (surrounding ring 59.5, painting 96.2), window box mean luma 63.1 to 40.7 and brightest pixel 235.9 to 65.5; 2,420 pixels changed, all inside the sigil support; the authoring script reproduces the patch byte for byte; EC-0 suite and harness 105 passed on the merged head; repo pytest passed."
+    ],
+    "note": "Merged fast-forward: #61 at 8342441 (2026-11-22 19:46Z), #63 at af863e0 (22:02Z) and #66 at bd05a26 (23:22Z; 3ee7491 is the patch repair and bd05a26 the criteria revert plus README numbers). CI verify was green on #61 and #66; for #63 the coordinator reported it green and the worker did not see it. Four earlier heads of #61 (#48, #49, #59 and #60) each ran a verify job and were superseded, because a permission classifier denied git push --force-with-lease, so each rebase onto a moving main became a new branch and PR. A review finding with its repair: EC-0's first sigil repair edited the dated 2026-11-21 evidence table in acceptance/effects/ec-0/CRITERIA.md, an acceptance-owned file, which rewrote dated history. On the coordinator's ruling (acceptance/ belongs to the acceptance authors) the edit was reverted (3a53d27 before the rebase, landed as bd05a26) and the re-measured criterion 4 numbers went to the ritual README (sigils-unlit 142 to 138 tiles, control 1.007 to 1.004; arcs-low-coupling 461/0.365/1.092 to 459/0.367/1.091; that table had been stale since #61). Open: a deferred asset pass, batched after the EC-2 and EC-3 reworks so the rain, glass and atmospherics studies are reauthored once, covers the straight edge of the shared outdoor mask at x 440.6, y 270-345 (review size, found by EC-3's rework check) plus any EC-2 asset findings; EC-3's rework has merged and EC-2's is in the merge queue. The dark band at the sigils is neon's own ARC_FLOOR and is not part of that pass. Not done: a cut for figure-far; the storm maps arch-matte, arch-plate-region, pool-matte and pool-plate-region still cross protect and must not be used as layer regions."
+  },
+  "route": {
+    "complexity_decision": "Coordinator routing of follow-up work to the EC-0 implementer session: protect crossings fixed at the source per the 2026-11-22 ruling (with option B on the wizard polygon and its conditions), then the outdoor mask from the wave-1 review and the sigil repair from EC-6's review. No card route, deterministic rule or classifier answer is recorded in the facts.",
+    "selected": {
+      "role": "implementer",
+      "harness": "claude-code desktop side session",
+      "model": "unknown (coordinator routing; no card route recorded)"
+    },
+    "observed": {
+      "role": "implementer",
+      "harness": "claude-code desktop app (Code tab, Agent SDK harness), worktree ec-0-assets-088a1f",
+      "model": "claude-sonnet-5-5",
+      "evidence": "The Co-Authored-By trailers on the merged commits of #61, #63 and #66 read Claude Sonnet 5.5 (git log); the facts for this round do not state the model. Reviewers were subagents; no other session or cheaper worker authored the work."
+    },
+    "suboutcomes": []
+  },
+  "coordinator_effort": {
+    "minutes": null,
+    "basis": "unknown",
+    "note": "Not recorded. Rulings and actions: protect crossings fixed at the source by EC-0, option B on the wizard polygon with five conditions, the criteria-table revert, batching the deferred asset pass, rebase and queue handling, and routing the sigil repair with EC-6's measurements."
+  },
+  "elapsed": {
+    "minutes": 927,
+    "basis": "measured",
+    "note": "First commit authored 2026-11-22 07:55Z to the PR #66 merge 23:22:55Z (15 h 27 min); work before the first commit is unknown. PR #61: first commit to merge 11 h 50 min (measured), almost all merge queue, rebases and CI (estimate). PR #63: first commit 19:52Z to merge 22:02Z, about 2 h 10 min. PR #66: first suite run 22:14Z, commit 22:35Z, merge 23:22Z. The longest single waits were the EC-0 suite, 7.5 to 13.5 min per run."
+  },
+  "review": {
+    "reviewer": {
+      "role": "independent reviewer",
+      "harness": "claude-code Agent subagents",
+      "model": "unknown",
+      "evidence": "Independent subagents that did not write the work; the facts do not record their model, so same_tier_as_worker is left out. PR #61: one review plus a re-check: F1 blocking on visual grounds (a 4 px margin left a hard-edged halo round the wizard, and the stated Lanczos4 rationale was wrong), F2 and F3 should-fix (the fir tinted by the receiving-water face; check_base_motion.py did not measure what the README said), F4 and F5 nits, F6 a routing note not counted; the re-check approved. PR #63: one review, 14.7 min, 108 tool calls, 273,305 tokens (harness report), no blockers, 3 should-fix, 4 groups of nits. PR #66: first pass 142.6 s, 17 tool calls, 91,952 tokens, approve with fixes (1 finding blocking for the smear criterion, 1 nit); the re-check (85.1 s, 113,257 tokens, possibly cumulative) approved with 3 nits. Mapping: blocking is blocker, should-fix is major, nits and nit groups are minor (estimate)."
+    },
+    "independent": true,
+    "findings": {
+      "blocker": 2,
+      "major": 5,
+      "minor": 10
+    }
+  },
+  "repairs": {
+    "count": 6,
+    "by": "worker",
+    "note": "Estimate: #61 had three repair commits (f8bc5bb the margin and fade, 16b2add the fir cut-out and measured README claims, 8342441 wording from the re-check); #63 one fix round (b455257, rebased as af863e0: depth.png unchanged, the room tree out of the mask, the jar lamp disk, leftover sky ramps, README statements); #66 one repair round after the first review (the foot compressed toward the surrounding glass level only where more violet than it) and the criteria revert on the coordinator's ruling. All by the implementer session; EC-1a fixed the kernel resampling defect EC-0 had diagnosed earlier (EC-1a PR #33)."
+  },
+  "cost": {
+    "usd": null,
+    "tokens": null,
+    "basis": "unknown",
+    "source": "Reviewer tokens as reported by the harness: #63 273,305; #66 91,952 plus 113,257 (possibly cumulative); #61's reviewer not recorded. The implementer's token use and currency cost were not recorded (the earlier context was lost to summarisation)."
+  },
+  "practice_observation": "Independent review earned its place: the reviewer showed that the ruling's own premise (a margin is needed against Lanczos4 spill at the protect boundary) did not hold in this kernel, because patches are blended by region maps resampled with the same filter, so the gate reads 0 even at margin 0; the 4 px margin was making a hard halo, so it became 2 px plus an 8 px fade. The first spindle-foot repair left a dark violet cloud and needed a second round. Rewriting a dated evidence table in an acceptance-owned file was caught and reverted; new numbers belong in the implementer's own files. EC-0's assets kept moving after acceptance because later studies (rain, glass, steam, neon) probe them, which is why the asset pass is batched. Costs: main moved four times under #61 and the force-push denial turned each rebase into a new PR (four wasted verify jobs, about 11 h of queue); checking CI once and never polling left the session idle through the merge; the Forgejo token cannot edit PR bodies, so stale bodies remain on superseded PRs."
+}

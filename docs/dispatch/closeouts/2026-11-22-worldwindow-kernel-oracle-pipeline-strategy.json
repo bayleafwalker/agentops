@@ -1,0 +1,99 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "worldwindow-kernel-oracle-pipeline-strategy",
+  "closed_on": "2026-11-22",
+  "outcome": "WorldWindow kernel oracle pipeline-strategy planner: a long-term strategy from source image to living painting (a survey of eight stages, whole-pipeline alternatives, a target architecture and a roadmap) with a draft ADR-0011 for the generative-authoring asset contract, docs only, independently reviewed against the existing ADRs and sibling plans.",
+  "work_refs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/plans/2026-11-22-pipeline-strategy.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/adr/0011-generative-authoring-assets.md"
+  ],
+  "prs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/58"
+  ],
+  "acceptance": {
+    "state": "accepted",
+    "criteria": [
+      "PR #58 adds only the plan and the draft ADR (1,514 lines); no file under src, acceptance or scenes changes (measured).",
+      "An independent review by Fable 5.2 found 8 blocking findings in the first draft; the same reviewer's re-check found all 8 resolved, with 3 minor follow-ups, which were fixed. Plan section 12 records every disposition (measured).",
+      "CI verify succeeded on d5c88fd, 94fc16f and the merged head (5 min 59 s); credctl refused once with checks-not-successful while the run was queued, which was correct and not worked around (measured)."
+    ],
+    "note": "Merged fast-forward at 5017267 on 2026-11-22 20:00Z after four pushes and three rebases (onto 5e2bb99, e145770 and 8342441). Coordinator decisions after merge, recorded by the coordinator's docs PR #62: H1 and H2 follow the operator's D8 (agents work forward on option a: agent author, independent crop review at native size, a merger who is not the author; the operator's approval is optional support that becomes required for a kind of asset after a human review of shipped motion traces a problem to a source or plan); H3 unchanged; D9 (gated weights) option a, following the operator's licence policy, so FLUX.1 Fill and Kontext dev are accepted when the layer plan's generative spike (its D5, after LD-3) is scheduled, SAM 3 stays deferred, and accepting a gated model's terms is an account action the operator takes then. The coordinator also confirmed that the operator's D1 and D2 policy was already in the plan and the ADR, so no commit was needed."
+  },
+  "route": {
+    "complexity_decision": "Coordinator judgement: the coordinator chose the route and the brief named no Luna or Terra card. The worker judged a planning document to be one coupled artifact, so it used no cheaper native worker; research and spikes went to subagents.",
+    "selected": {
+      "role": "planner",
+      "harness": "claude-code desktop side session",
+      "model": "unknown (coordinator's choice; no card named)"
+    },
+    "observed": {
+      "role": "planner and writer",
+      "harness": "claude-code desktop app (Code tab, Agent SDK harness), worktree oracle-pipeline-plan-1d74a1",
+      "model": "claude-opus-5-5",
+      "evidence": "Read from the session transcript (measured); the Co-Authored-By trailers on the plan commits read Claude Opus 5.5. No OpenCode, agentops dispatch run or other native cheaper worker."
+    },
+    "suboutcomes": [
+      {
+        "role": "four research agents: source and edits; plates and final pass; learned motion and loops; section selection and judging",
+        "harness": "claude-code Agent subagents",
+        "model": "claude-opus-5-5",
+        "evidence": "10 to 14 min each, 15.56 M tokens in all (measured from metadata and transcripts)."
+      },
+      {
+        "role": "spike S1: blind VLM motion plan",
+        "harness": "claude-code Agent subagent",
+        "model": "claude-sonnet-5-5",
+        "evidence": "0.17 M tokens (measured)."
+      },
+      {
+        "role": "spike S2: Wan 2.2 TI2V-5B clip on the shared local GPU",
+        "harness": "local model run by the planner session",
+        "model": "Wan 2.2 TI2V-5B",
+        "evidence": "The first attempt ran out of VRAM at the VAE decode; the rerun decoded tiled (measured). A generated clip fails protect, seam and drift, but its flow field holds in the kernel loop."
+      },
+      {
+        "role": "spike S3: hosted image edit via codex exec",
+        "harness": "Codex CLI 0.171",
+        "model": "unknown (the tool reported no image model name)",
+        "evidence": "About 80 s and about 40k tokens (reported by the tool). A hosted edit leaks outside its corridor."
+      }
+    ]
+  },
+  "coordinator_effort": {
+    "minutes": null,
+    "basis": "unknown",
+    "note": "Not recorded. Coordinator actions: the route, the H1/H2 and D9 rulings, the PR #62 docs follow-up, and the merge queue that spared further wasted CI jobs after the first rebases."
+  },
+  "elapsed": {
+    "minutes": 342,
+    "basis": "measured",
+    "note": "Brief 2026-11-22 14:18Z to the PR #58 merge 20:00:08Z (5 h 42 min, from transcript and forge timestamps). Brief to PR 1 h 01 min; PR to merge 4 h 41 min, almost all of it the single-job CI runner's backlog and the coordinator's merge queue. Transcript gaps over 10 min total 4 h 21 min; active agent time is about 1 h 25 min (estimate: wall clock minus those gaps, which still includes short CI polls). No usage-limit pause was observed."
+  },
+  "review": {
+    "reviewer": {
+      "role": "independent reviewer",
+      "harness": "claude-code Agent subagent",
+      "model": "claude-fable-5-2",
+      "evidence": "A subagent that did not write the plan, read from its transcript (measured); the first review plus a re-check by the same reviewer, 4.16 M tokens (36.8k output) over 15:01 to 15:18Z. First draft: 8 blocking findings (a kernel dither breaking digests and protect; an optional-dependency group against ADR-0010 decision 7; unstated amendments; a water class duplicating cascade@1, ripple@1 and EC-0's ruled maps; wall clock used as working time; an unverified Codex size; a plate check that cannot fail; two stages duplicating LD-3 and LD-4 and tuning to statistics) and 12 non-blocking (N1 to N12); the re-check added 3 minor follow-ups. Non-blocking items are counted as minor (estimate). The layer planner independently raised 3 of the same points."
+    },
+    "independent": true,
+    "same_tier_as_worker": false,
+    "findings": {
+      "blocker": 8,
+      "major": 0,
+      "minor": 15
+    }
+  },
+  "repairs": {
+    "count": 3,
+    "by": "worker",
+    "note": "Three repair commits by the planner session: 245d75f (the review's findings B1 to B8 and N1 to N12), 721845a (the three follow-ups), and 5017267 (links to the merged ADR-0010 and layer plan after the final rebase, not review-driven). The worker checked the reviewer's repository facts against the repository before fixing. The coordinator made none."
+  },
+  "cost": {
+    "usd": null,
+    "tokens": null,
+    "basis": "unknown",
+    "source": "Summed from transcript usage fields, deduplicated by message id (measured), about 72.4 M tokens, about 94 % cache reads: planner session claude-opus-5-5 52.55 M (231k output), four research agents 15.56 M, S1 0.17 M, reviewer 4.16 M; Codex S3 about 40k (reported). Two context-compaction calls and the closeout turn are not counted, so it is a lower bound. Currency cost unknown."
+  },
+  "practice_observation": "The first draft overreached into other owners' areas and the kernel's invariants (a kernel dither, a duplicate water class, a duplicate plate tool, a dependency group against an ADR, a check that holds by construction); only a reviewer on a different model found them, 8 blocking. Lessons kept: check each proposed card against the existing ADRs and sibling plans for ownership and invariants, and give every hard check a must-fail control. A baseline taken from another outcome's total wall clock (27.3 h) instead of its separated working time (about 5.7 h) was caught the same way, so take baselines from labelled closeout facts. Short capped spikes changed the recommendation (models should make assets, not frames; a hosted edit needs an outside-identity check). CI wait was about 4.7 of 5.7 h behind the single runner; the coordinator's merge queue then gave one push, one verify, merge. Unknown: whether four default Opus research agents (15.6 M tokens, mostly cache reads) were worth it against Sonnet."
+}

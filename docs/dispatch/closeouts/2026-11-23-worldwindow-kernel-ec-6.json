@@ -1,0 +1,82 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "worldwindow-kernel-ec-6",
+  "closed_on": "2026-11-23",
+  "outcome": "WorldWindow kernel EC-6: neon, neon@1 (switched painted light with a sequenced chase, ignition bursts, dropouts and a tight glow) and the ritual neon study, judged by the independent EC-A EC-6 criteria and two independent look reviews.",
+  "work_refs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/plans/2026-11-20-effect-classes.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/effects/ec-6/CRITERIA.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/effects/neon.md"
+  ],
+  "prs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/67"
+  ],
+  "acceptance": {
+    "state": "accepted",
+    "criteria": [
+      "Final tree, rebased onto 990ff32 (measured; thread caps 1, nice 10; the runs print dots, not summary lines): study, oracles and determinism 19 passed; controls, fixtures, foregrounds, validation, selfcheck, docs and fast hot-pool 68 passed; scope check c10 failed on the branch as first built and passes once EC-0's files are on main; repo tests 1021 passed on the branch.",
+      "Study gates at review (measured): seam-step 0.378 and seam-acceleration 0.478 against 1.1; protect, motion-out and determinism 0; motion-in 2.6e-4 against floor 1.56e-4; coherence hf 8.5e-05 against 0.01; 52 of 1151 interior steps (4.5 %) excluded, within the 5 % cap. Hot-pool digest unchanged; frozen M1 modules byte-identical to the merge base. The slow hot-pool frame comparison ran on the first build only, before the repairs.",
+      "Budget, signed off (measured at loads 10.4 and 10.0 on 16 CPUs): 0.0003 s per frame at review against 0.15 and 0.0199 s at 3440x1475 against 2.0 (plain medians 0.0003 s and 0.0381 s)."
+    ],
+    "note": "PR #67 is one commit, 2c87f6b, merged fast-forward on 2026-11-23 16:33Z with the CI verify job green on that head (reported by the coordinator, who merged it after the worker's session lost its CI watcher to a box reboot; the worker did not see the run). The first branch carried another session's commit (EC-0's repaired sigils-unlit patch, at the coordinator's request) and failed scope check c10, because EC-0's files lie outside EC-6's ownership; the repair was to land that commit separately as PR #66 and rebase, after which #67 carries EC-6 files only. The coordinator ruled that the unlit-patch defects found by review (spindle-foot smear, tower window barely dimmed) are fixed, not accepted. Recorded limits: a 2 to 3 px faint centre spot at the window and a mild violet cast at the spindle foot; the arc ghost and dark band at the arc corridor come from neon's own ARC_FLOOR 0.30 and go to the EC-8 and EC-9 integration owner as a combined-scene decision; the reviewers opened PNG frames only, not the mp4s, and the 3440 wall display is inferred. The study's review record carries decision hold, awaiting human review."
+  },
+  "route": {
+    "complexity_decision": "Card route Luna; the coordinator-started Sonnet 5.5 session did the design, implementation, tests, study authoring and repairs. The worker's judgement: one tightly coupled class plus its maps, so decomposition would have cost more than it saved. No deterministic rule or classifier answer recorded.",
+    "selected": {
+      "role": "implementer",
+      "harness": "claude-code desktop side session",
+      "model": "Luna (card route)"
+    },
+    "observed": {
+      "role": "implementer",
+      "harness": "claude-code desktop app (Code tab, Agent SDK harness), worktree ec-6-neon-04377e",
+      "model": "claude-sonnet-5-5",
+      "evidence": "The worker's facts state the session model; the Co-Authored-By trailer on PR #67's commit reads Claude Sonnet 5.5 (git log). No Luna, Terra, OpenCode Go, Jev or agentops dispatch run; no cheaper native worker was used."
+    },
+    "suboutcomes": [
+      {
+        "role": "EC-0 session: repair patches/sigils-unlit.png (spindle-foot smear, tower window core), PR #66",
+        "harness": "claude-code desktop side session",
+        "model": "claude-sonnet-5-5",
+        "evidence": "Routed by the coordinator with EC-6's measured boxes; EC-0's commit trailers read Claude Sonnet 5.5. See the EC-0 rework record."
+      }
+    ]
+  },
+  "coordinator_effort": {
+    "minutes": null,
+    "basis": "unknown",
+    "note": "Not recorded. Rulings and actions: EC-6 A1 schedule formula no veto, the plan's 7.8 example corrected while the 5 % cap stands (study within the cap), the patch defects fixed not accepted, routing the patch repair to EC-0 and carrying its commit, queue handling, and merging PR #67 after the box reboot."
+  },
+  "elapsed": {
+    "minutes": 1249,
+    "basis": "measured",
+    "note": "First transcript timestamp 2026-11-22 19:45Z to the PR #67 merge 2026-11-23 16:33:39Z (20 h 49 min). The last commit was made 23:24Z on the 22nd (about 3 h 40 min of session time, measured); the other 17 h were the merge queue and a box reboot, including a usage-limit pause of unknown length. Active time is unknown (transcript timestamps before the first compaction are not a reliable measure)."
+  },
+  "review": {
+    "reviewer": {
+      "role": "independent look reviewers",
+      "harness": "claude-code Agent subagents",
+      "model": "claude-opus-5-5",
+      "evidence": "Review 1: Opus 5.5 subagent, 26 tool uses, 114,320 tokens, 337 s (reported), ACCEPT WITH CHANGES: 3 major (dips at fixed ages 1, 3, 5 from a dead drawn offset; purple smear in the unlit sphere; tower window barely dims), 3 minor, 2 nits. Review 2: a different Opus 5.5 subagent on the package with EC-0's repaired patch, 19 tool uses, 96,213 tokens, 350 s (reported), ACCEPT WITH CHANGES: 1 major (the placement repair still gave evenly spaced dips for 19.7 % of keys), 2 minor, 1 nit; resumed for a re-check of the final package (7 tool uses, 109,890 tokens, possibly cumulative): all fixed, 1 nit. Counts are from the review files with nits counted as minor; the dips finding is counted twice because the first repair only partly worked. Both reviewed PNG frames, not mp4s."
+    },
+    "independent": true,
+    "same_tier_as_worker": false,
+    "findings": {
+      "blocker": 0,
+      "major": 4,
+      "minor": 9
+    }
+  },
+  "repairs": {
+    "count": 3,
+    "by": "mixed",
+    "note": "Review-driven rounds (estimate): round 1 (dip placement, glow strength, the arc-surge sag colliding with the dial's turn-on, docs) by the worker; the patch repair by the EC-0 session on the coordinator's routing; round 2 (dip placement never evenly spaced for three or more, glow gain lowered to 0.7 to cut blue clipping) by the worker. Every gate passed before and after each repair, so none was gate-prompted. Earlier build-time repairs: the 5 % cap forced strokes of 1 and a single sequence cycle in the study; a hard arc exclusion bit a wedge out of the dial, so masks use a 0.30 floor along arc corridors with a 16 px feather."
+  },
+  "cost": {
+    "usd": null,
+    "tokens": null,
+    "basis": "unknown",
+    "source": "Worker transcript, a lower bound (measured, deduplicated by message id): output 187,547, input 380, cache read 38.7 M, cache creation 648 k. Subagents as reported by the harness: 114,320, 96,213 and 109,890 (the last may be cumulative). Currency cost not recorded."
+  },
+  "practice_observation": "The independent look found a dead drawn offset that made every turn-on the same 12 Hz strobe, which all 69 plus 958 tests and the worker's own look missed; a second reviewer on a different package found the first repair still failed one burst in five. Viewing lit and off crops before review found the window and smear early. Carrying another session's commit made the scope check fail by construction; landing it as its own PR and rebasing was the clean repair, so a defect found in another outcome's assets should go to its owner first. Costs: study review gates took 5 to 7 min each under load, two usage-limit stops, and about 17 h from final commit to merge in the queue and reboot. The card routed Luna and a Sonnet session delivered, so this does not test Luna."
+}

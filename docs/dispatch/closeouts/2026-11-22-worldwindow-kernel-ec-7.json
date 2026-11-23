@@ -1,0 +1,75 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "worldwindow-kernel-ec-7",
+  "closed_on": "2026-11-22",
+  "outcome": "WorldWindow kernel EC-7: storm events, thunder@1 (cloud-to-ground bolts and in-cloud flashes from an events@1 schedule, sky light, outdoor relight and glow) and the storm thunder study, judged by the independent EC-A EC-7 criteria and an independent two-round review.",
+  "work_refs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/plans/2026-11-20-effect-classes.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/effects/ec-7/CRITERIA.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/effects/thunder.md"
+  ],
+  "prs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/65"
+  ],
+  "acceptance": {
+    "state": "partially-accepted",
+    "criteria": [
+      "Measured: fast 59 passed (not slow, not budget); slow 9 passed, including hot-pool frames byte-identical to the merge base at review and smoke and the study oracles; budget 3 passed; repo tests 945 passed; tests/effects/thunder 61 tests in about 1.8 s. Study review package exit 0 with every gate passed: seam-step 0.953, seam-acceleration 0.960 (limit 1.1), protect, motion-out and determinism 0, coherence rho 0.986, motion-in 6.44e-4 against floor 2.83e-4. Hot-pool digest unchanged.",
+      "Clipping of the visible sky at the four peaks, at the study's sky_flash_ev 1.8: 0.7, 0.7, 1.7 and 3.4 % against a limit of 5 % (measured). At the plan's 2.5 EV it would be 2.9, 2.8, 10.2 and 7.0 %.",
+      "Budget (criterion 7) is not signed off: the box was oversubscribed (load 17 to 19 on 16 CPUs), so the plain median could not be judged. Least-of-3 reads were 0.0078 s at review (limit 0.15) and 0.34 s at 3440x1475 (limit 2.0). The coordinator's loaded re-run on 2026-11-23 read 0.0102 s and 0.208 s plain (measured); a quiet-box sign-off run is still owed."
+    ],
+    "note": "PR #65 is one squashed commit, 990ff32, pushed once to a new branch and merged fast-forward (2026-11-22 22:57Z) after the verify check passed on that head. Open item: the study uses sky_flash_ev 1.8 against the plan's 2.5 (2.5 clipped 10.2 % and 7.0 % of the visible sky at two peaks; the criteria anticipated lowering the gain, and the PR body states the deviation); a revision note for plan section 7.5 is pending in the coordinator's next docs PR. The clipping-oracle gaps are routed to the acceptance owner EC-A4: the criterion 4 control (sky_flash_ev 6) could not fail while the shoulder was asymptotic (the worker made the shoulder reach display white at linear 1.25, after which the control reads 0.108 to 0.262), so a correct-looking asymptotic shoulder still passes the oracle. Known limits recorded in the review record (decision hold, awaiting human review): a uniform white channel up close, a near-uniform landscape relight, one bolt that is a stub of about 40 px, and a relight_floor of 0.45 that barely changes the relight."
+  },
+  "route": {
+    "complexity_decision": "Card route Terra; a Sonnet 5.5 session implemented and fixed everything. No deterministic rule or classifier answer is recorded in the facts.",
+    "selected": {
+      "role": "implementer",
+      "harness": "claude-code desktop side session",
+      "model": "Terra (card route)"
+    },
+    "observed": {
+      "role": "implementer",
+      "harness": "claude-code desktop app (Code tab, Agent SDK harness), worktree ec-7-thunder-c2d404",
+      "model": "claude-sonnet-5-5",
+      "evidence": "The worker's facts state the session model; the Co-Authored-By trailer on PR #65's commit reads Claude Sonnet 5.5 (git log). No Luna or OpenCode Go delegation: the class, tests, docs and study were all written by the implementer session."
+    },
+    "suboutcomes": []
+  },
+  "coordinator_effort": {
+    "minutes": null,
+    "basis": "unknown",
+    "note": "Not recorded. Rulings and actions touching this outcome: sky_flash_ev 1.8 instead of 2.5 accepted with a plan revision note, the clipping-oracle gaps routed to EC-A4, budget sign-off deferred to a quiet-box run, and merge-queue handling."
+  },
+  "elapsed": {
+    "minutes": 193,
+    "basis": "measured",
+    "note": "Session transcript start 2026-11-22 19:45Z (21:45 local) to the PR #65 merge 22:57:45Z. The transcript itself ends at 22:32Z, 2 h 47 min after the start, including a usage-limit pause and waits on long renders; later work to about 23:00Z is an estimate. Active time is unknown."
+  },
+  "review": {
+    "reviewer": {
+      "role": "independent reviewer",
+      "harness": "claude-code Agent subagent (model setting opus)",
+      "model": "claude-opus-5-5",
+      "evidence": "An Opus 5.5 subagent that did not write the code, two rounds, read code and extracted frames (model from the harness setting, reported). Round 1, ACCEPT WITH CHANGES: 2 major, both fixed (max_lean ignored for 2 of 3 bolts, up to a lean of 5.68; a hard relight edge on the lower-left snow cliff from exposure re-hardening the blur), 3 minor (tail-cut message, uniform white channel, near-uniform relight) and 1 nit. Round 2, ACCEPT: two non-blocking notes (event 2 is a short stub; relight_floor 0.45 barely changes the relight). Nits and notes count as minor. Tokens as reported: 144,754 (round 1) and 161,304 (round 2, cumulative)."
+    },
+    "independent": true,
+    "same_tier_as_worker": false,
+    "findings": {
+      "blocker": 0,
+      "major": 2,
+      "minor": 6
+    }
+  },
+  "repairs": {
+    "count": 3,
+    "by": "worker",
+    "note": "Estimate of repair rounds, grouped by the closeout: (1) before review, the worker's own finding that the asymptotic shoulder made the criterion 4 control unable to fail (finite shoulder), the study gain lowered to 1.8 after the clipping oracle failed at 2.5, and a static determinism lint (BLAS np.outer replaced); (2) review round 1 fixes (lean cone, exposure feather, message and docs); (3) outdoor-based maps rebuilt after EC-0's outdoor mask landed, because studies authored on the old sky map failed their pins. No acceptance file edited, no gate weakened, no exemption requested."
+  },
+  "cost": {
+    "usd": null,
+    "tokens": null,
+    "basis": "unknown",
+    "source": "Worker transcript up to 00:32 local (measured, may double count streamed messages): output 405,512, uncached input 630, cache read 64.06 M, cache creation 1.40 M; later turns unknown. Reviewer as reported: 144,754 plus 161,304. Currency cost and CI runner time not recorded."
+  },
+  "practice_observation": "Fixture oracles first, on a 3 s loop at 240x104, found the dim core and the missing bolts before any study render. Measuring the clipping oracle against both its control and the study showed that the shoulder choice decided whether the control could fail, which is an oracle gap the acceptance owner now holds. The independent reviewer found a bolt crawling across the sky (lean 5.68) and a hard relight edge that no gate sees. The first study draft looked fine and passed every gate, then failed the clipping oracle only after the shoulder was fixed, so the oracle should run on the study right after the first render. Costs: a usage-limit stop mid-way, and a budget run that could not sign off on an oversubscribed box."
+}
