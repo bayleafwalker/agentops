@@ -1,0 +1,77 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "worldwindow-kernel-ec-4-clip-repair",
+  "closed_on": "2026-11-23",
+  "outcome": "WorldWindow kernel EC-4 addendum: fire rolls off the light it adds into the headroom above the painted value, so painted-white flame cores no longer clip flat, and the fire study passes EC-A4's revised criterion 20 (S10: at most 5 % of an emitter's flame pixels at a channel of 254 or more that the painting holds under 245) while keeping the other EC-4 criteria.",
+  "work_refs": [
+    "docs/dispatch/closeouts/2026-11-22-worldwindow-kernel-ec-4.json (earlier attempt record for the same outcome)",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/plans/2026-11-20-effect-classes.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/effects/ec-4/CRITERIA.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/effects/fire.md"
+  ],
+  "prs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/74"
+  ],
+  "acceptance": {
+    "state": "accepted",
+    "criteria": [
+      "Kernel PR #74 (measured by the worker; thread caps 1, nice 10, ECA_FAMILY_JOBS 2, on a busy shared box): criterion 20 (acceptance/effects/ec-4 slow, study_flame_clipping at 3440x1475) reads 0.0 on every emitter at desk frames 232 and 387, post 980 and pool 172, against 0.05; before the repair 0.521, 0.283, 0.138 and 0.177. Fire unit tests 79 passed (74 before); acceptance/effects/ec-4 not slow, including the scope test, and slow passed on the tree rebased onto 462dd5d; repo pytest exit 0 (no count recorded).",
+      "Review gates at review (1152 frames) all passed: seam step 0.621, seam acceleration 0.677, protect 0, motion-in desk 6.19e-4 (floor 9.79e-5), post 2.426e-4 (floor 2.407e-4, a 0.8 % margin, was 2.7 %), pool 2.466e-4 (floor 2.155e-4, 14 %). Oracles passed: independence 0.092 within the desk pair and |cross-layer| 0.119 or less, spill coupling 0.9921 to 0.9940, per-emitter HF 0.0079, 0.0071, 0.0074 and 0.0078 against 0.01 (before 0.0087, 0.0077, 0.0079, 0.0085), never-out 0.792 to 0.814 (unchanged), tongues upward on every layer. Hot-pool digest unchanged.",
+      "Flicker life, layer alone, displayed luminance, p5 to p95 half-swing, before to after: desk tall 4.42 to 3.83 %, desk bird 4.42 to 4.04 %, post 4.42 to 4.12 %, pool 4.32 to 3.98 %; about a tenth of the swing is lost where the painting has no headroom, and the worker did not win it back by raising depth, which would need criterion 20 and the motion-in floors re-measured.",
+      "Independent before and after review (Opus 5.5 subagent that wrote none of the code): ACCEPT WITH NOTES, no blocker or major. It rendered its own frames (140 per layer plus the first 48 contiguous), matched the after renders to the package byte for byte and read 16 native 3440 crops. Pixels with any channel at 254 or more fell from 357, 271, 65 and 84 to 66, 45, 11 and 17 (desk tall, desk bird, post, pool), none with all three channels; the tall desk flame's flat 13 px run at R 255 is gone and its notched outline survives; the repair only removes light (0 pixels brighter across all sampled frames). The reviewer did not re-run the gates or criterion 20 itself and did not check playback."
+    ],
+    "note": "Merged fast-forward at 676d84a on 2026-11-23, with verify green on that exact head (run #185). The coordinator merged it with credctl because the EC-4 session stopped at the usage limit (about 19:00 to 19:50Z) before merging; the worker's own merge calls had not merged it. The repair is in src/worldwindow/effects/fire.py with docs, fire tests and one review record (decision hold); no acceptance file, scene, map or fire.yaml changed (scene digest unchanged, code digest moved). The criterion itself is EC-A4's PR #71 (see its record); main carried it from 462dd5d and the merged fire study failed it until this repair landed (expected; not in CI). It closes the red clipping at flicker peaks that EC-4's post-merge re-check recorded as a minor and routed to EC-A4. The roll-off is out = painted + a*h/(a + h) per channel, with a the added light and h the headroom; light.rolloff has a scalar knee, so it is not called and procedural/light.py is untouched. Open and recorded: the post lamp's motion-in margin is 0.8 % (deterministic and met, with no slack); raising its spill_gain_ev from 1.5 to 1.6 would restore it and is kept as an option for EC-8 if the composite needs slack. The worker did not re-measure criterion 7's budget on the repaired class; the coordinator's quiet-box sign-off (2026-11-23 17:18Z, main 0b515de) predates it, and the PR states only that the budget tests pass in the fast run by the least-time statistic. The reviewer's optional desk depth rise was not done. Reviewer notes kept as minor: the hottest desk core spans only a few 8-bit levels and reads near-uniform white at 1x, and bright surfaces never near clipping lose up to 15 to 16 levels, invisible at 1x."
+  },
+  "route": {
+    "complexity_decision": "Coordinator routing of the repair to the EC-4 implementer session after EC-A4's criterion merged: fix criterion 20 while keeping the post motion-in margin, per-emitter HF and the hot cores, with an independent before and after review. No card route, deterministic rule or classifier answer is recorded in the facts.",
+    "selected": {
+      "role": "implementer",
+      "harness": "claude-code desktop side session",
+      "model": "unknown (coordinator routing; no card route recorded)"
+    },
+    "observed": {
+      "role": "implementer",
+      "harness": "claude-code desktop app (Code tab, Agent SDK harness)",
+      "model": "claude-sonnet-5-5",
+      "evidence": "The worker's facts name the session as Sonnet 5.5 and the Co-Authored-By trailer on 676d84a reads Claude Sonnet 5.5 (git log). No Luna, Terra, OpenCode Go, Jev or agentops dispatch run; no cheaper native worker was used. The session designed and made every edit; one Opus subagent reviewed the pictures."
+    },
+    "suboutcomes": []
+  },
+  "coordinator_effort": {
+    "minutes": null,
+    "basis": "unknown",
+    "note": "Not recorded. Rulings and actions touching this outcome: routing the repair with its conditions, releasing PR #74 ahead of the coordinator's own plan note PR, merging #74 after the usage-limit stop, and recording the 0.8 % margin and the spill_gain_ev option for EC-8."
+  },
+  "elapsed": {
+    "minutes": null,
+    "basis": "unknown",
+    "note": "The repair's start is not recorded in the facts; it was routed once EC-A4's PR #71 merged on 2026-11-23, and the merge followed the 19:52Z resume after the usage-limit stop. The merge time is not recorded here. Active time is unknown."
+  },
+  "review": {
+    "reviewer": {
+      "role": "independent reviewer",
+      "harness": "claude-code Agent subagent (read-only)",
+      "model": "claude-opus-5-5",
+      "evidence": "One Opus 5.5 subagent that wrote none of the code: 25 tool uses, 98,754 tokens, 247 s (harness report); verdict ACCEPT WITH NOTES. Two MINOR findings counted; NOTE items (hue shift toward yellow-white, flicker loss not visible side by side, spill region means unchanged) are observations and are not counted. The reviewer did not re-run the gates and did not check playback or fire-desk emitter 1 separately."
+    },
+    "independent": true,
+    "same_tier_as_worker": false,
+    "findings": {
+      "blocker": 0,
+      "major": 0,
+      "minor": 2
+    }
+  },
+  "repairs": {
+    "count": 0,
+    "by": "none",
+    "note": "The merged commit is the repair itself; the review asked for no change and the worker made none after it (one commit on PR #74)."
+  },
+  "cost": {
+    "usd": null,
+    "tokens": null,
+    "basis": "unknown",
+    "source": "Reviewer 98,754 tokens (reported by the harness). The worker session's tokens, the coordinator's merge effort, CI runner time and currency cost were not recorded."
+  },
+  "practice_observation": "EC-A4's revised criterion put a measurable bound on the clipping that EC-4's post-merge picture re-check had only recorded as a minor, and the implementer then fixed it inside its own paths, as the split intends: the merged study read 0.521 against 0.05 and the repair reads 0.0, with an independent reviewer who rendered its own frames and matched the package byte for byte. The price was visible and disclosed: the post lamp's motion-in margin fell from 2.7 % to 0.8 % and about a tenth of the flicker swing is lost where the painting has no headroom, with the spill_gain_ev option held for EC-8. Main carried a criterion the merged study failed for the whole interval before this merge, and the implementer's session stopped at the usage limit one step before merging, so the coordinator merged it. The criterion 7 budget was not re-measured on the changed class."
+}

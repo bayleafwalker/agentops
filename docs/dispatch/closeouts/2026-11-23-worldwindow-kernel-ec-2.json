@@ -1,0 +1,78 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "worldwindow-kernel-ec-2",
+  "closed_on": "2026-11-23",
+  "outcome": "WorldWindow kernel EC-2: atmospherics, clouds@1, mist@1 and steam@2 with the storm atmospherics study, judged by the independent EC-A EC-2 criteria; then a rework of the study's maps and parameters after the wave-1 picture review (cloud highlight churn, forest drag, scud coverage, mist veil, steam warmth and occlusion, front wisps) and an independent re-check of the repairs, with no class code change.",
+  "work_refs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/plans/2026-11-20-effect-classes.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/effects/ec-2/CRITERIA.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/effects/clouds.md"
+  ],
+  "prs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/55",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/70"
+  ],
+  "acceptance": {
+    "state": "accepted",
+    "criteria": [
+      "First merge, PR #55 (measured by the worker; thread caps 1, nice 10, ECA_JOBS 2; table from head 7ca2929, the same code before the rebases): fast tier 220 passed, 2 skipped by design (c06: steam@2 takes no signal; s08: fewer than 4 idle cores at load 14.7), 1013 s; slow tier 36 passed, 1924 s; budget 2 passed, 253 s at load 11 to 24 (a conservative pass); repo tests 747 passed. Study at review (960x412, 1152 frames): 23 of 23 gates pass, seam step 0.965 and seam acceleration 0.993 against 1.1, motion-in value over floor clouds 1.043e-3/2.37e-4, mist 7.44e-4/2.83e-4, pool-steam 9.78e-4/2.16e-4, wisps 3.16e-4/2.41e-4; at smoke the mist margin was 6 % and the wisps margin 21 %. Hot-pool digest unchanged.",
+      "Re-runs after the four rebases that followed #55's opening (measured): after the seam-floor change, fast 221 passed, 1 skipped, slow 36 passed, repo tests 762; after EC-3's rain, c01, c02, c09, c10, c11 and c12 24 passed, repo tests 808; after EC-4's fire, c08, c10 and c11 8 passed. The full fast, slow and budget tiers were not rerun after the EC-3 and EC-4 rebases (the worker's estimate: low risk, those commits add new files and a glass-layer rule none of EC-2's layers uses). Forge CI on d3e8bd9: success, 5 min 53 s.",
+      "Rework, PR #70 (measured, from the PR body): fast 221 passed, 1 skipped (c06, by design), 814 s; slow 36 passed; budget 2 passed; repo tests 1021, then 1106 after the rebase onto c38b136; c01, c08, c10 and c11 11 passed after the rebase with the review package rebuilt; all 1152 master frame hashes equal before and after the rebase and 23 of 23 gates in both packages (the code digest moved with main, the pixels did not). Study at review: seam step 0.966, seam acceleration 0.991; motion-in clouds 7.2e-4, mist 9.5e-4, pool-steam 1.33e-3, wisps 7.5e-4 (floors 2.2e-4, 2.9e-4, 2.2e-4, 2.5e-4); at smoke the mist margin is 28 %, from 6 %, and the wisps margin 140 %. Hot-pool digest unchanged. The worker states no content was shaped for a statistic and no exemption was asked.",
+      "Look. Wave-1 independent picture review (Opus, frames and measurements): clouds ship with notes, mist ship with notes, steam@2 needs rework (scene maps only). Re-check of the seven repairs by a second Opus reviewer that wrote none of the code or maps, told not to read the author's record first: no blocker; highlight churn (mean step 3.5x the rest of the sky to 1.06x), forest drag (pines temporal std 1.50 to 0.03) and steam occlusion fixed; scud, mist and steam warmth improved with limits; front wisps only marginally better. It found one defect the rework introduced, the dark scud ending on a line above the bright horizon at x 740 to 840 (clouds region edge fell within about 4 px); the repair widened the ramp (steepest step 5.65 to 1.40 levels per px, map only) and the same reviewer checked it on new frames: no blocker.",
+      "Criterion 7 budget, signed off by the coordinator (main 70ae9a4, 2026-11-23 18:34Z, load 5.0 to 8.3 on 16 CPUs; measured), seconds per frame: at review clouds 0.019, mist 0.030, pool-steam 0.015, wisps 0.012; at 3440 clouds 0.217, mist 0.411, pool-steam 0.149, wisps 0.235. The budget limits are in the criteria and are not restated here."
+    ],
+    "note": "PR #55 merged fast-forward at d3e8bd9 (2026-11-22 about 18:47Z), one PR for the whole outcome after two rebases before it and four after it; its body carries the first run's numbers because the Forgejo token cannot edit PR bodies. PR #70 merged fast-forward at 70ae9a4 on 2026-11-23 with verify green on the head (merge time not recorded here); it was released on the condition that main held EC-5's c38b136, then rebased and rerun. Until #70 merged, main's atmospherics.yaml failed validation, because EC-0's outdoor-mask merge changed the sky.png and pool-cut digests the study declares; #70 declares the new ones and authors clouds-region, mist-region and mist-warp again on the new sky. Recorded limits after the rework: mist keeps 63 % of the painting's fine detail (from 53 %) and reads as haze more than as banks; the scud's left third is about 30 % weaker and is now the stillest part of the sky; the front wisps are barely there on the figure; clouds near the horizon move less (the horizon band's motion halved); nobody has seen playback or mist and steam at display size. Unchanged from #55: steam@2 is about equal in presence to steam@1; the clouds rim behind the arch is weakened, not frozen; castle spires shimmer about 2 px; the mist region has a straight left edge near x 270; no oracle bounds mist density speed (parked by the coordinator). Disclosure from #55: restricting the mist's painted warp to haze removed most of what motion-in:mist measured, and the worker raised the study's mist flow and wisps density with the gate's numbers in view. Follow-ups left for the human review, whose decision is null: vertical falloff on the mist banks with a darker veil, more density in the front wisps, and the playback and display-size looks. EC-2 asset findings, if any, join EC-0's deferred asset pass."
+  },
+  "route": {
+    "complexity_decision": "Card route Terra; the coordinator-started Sonnet 5.5 session delivered, so this outcome does not test Terra. The worker's judgement: the three effects, their tests and the study share one design (frame-pure loop phases, the cross-fade, the painted warp), so one head kept it together. The coordinator routed the rework after the wave-1 picture review. No deterministic rule or classifier answer is recorded in the facts.",
+    "selected": {
+      "role": "implementer",
+      "harness": "claude-code desktop side session",
+      "model": "Terra (card route)"
+    },
+    "observed": {
+      "role": "implementer",
+      "harness": "claude-code desktop app (Code tab, Agent SDK harness), worktree ec-2-atmospherics-7f7d59",
+      "model": "claude-sonnet-5-5",
+      "evidence": "The worker's facts state the harness-reported session model; the Co-Authored-By trailer on 70ae9a4 reads Claude Sonnet 5.5 (git log). No Luna, Terra, OpenCode Go, Jev or agentops dispatch run: no cheaper native worker session was started. The session designed, implemented, repaired and merged both PRs itself; reasoning effort is unknown."
+    },
+    "suboutcomes": []
+  },
+  "coordinator_effort": {
+    "minutes": null,
+    "basis": "unknown",
+    "note": "Not recorded. Rulings and actions touching this outcome: the wave-1 rework routing, the conditional release at the queue head (withdrawn after the re-check found the scud edge, then conditional on c38b136), and the budget sign-off run after the merge."
+  },
+  "elapsed": {
+    "minutes": null,
+    "basis": "unknown",
+    "note": "Original delivery: first transcript entry 2026-11-22 08:19Z to the PR #55 merge about 18:47Z, 10 h 28 min (628 min, measured), including a usage-limit gap of 3 h 36 min (09:00 to 12:35Z) and a gap of 1 h 21 min of unrecorded cause; active time about 5 h 30 min (estimate), of which about 4 h was waiting for CI and rebasing after the PR opened. The rework's start and the PR #70 merge time are not recorded, so one figure for the whole outcome is not given; the coordinator estimated 70 to 90 min for the scud-edge fix with its re-runs and the rebase (estimate, not measured)."
+  },
+  "review": {
+    "reviewer": {
+      "role": "independent reviewers (original review; wave-1 picture review and rework re-check)",
+      "harness": "claude-code Agent subagents (read-only)",
+      "model": "claude-opus-5-5",
+      "evidence": "Original review of #55: one Opus 5.5 subagent (general-purpose, model opus), read-only, resumed twice; it read the diff, the criteria and the plan and looked at rendered frames. Three rounds: 190,664, 238,552 and 253,892 tokens, 105 tool uses, 20.2 min of reviewer wall time (reported; whether the token figures are per run or cumulative is unknown). Round 1 gave 0 blocking, 3 major, 9 minor; round 2 1 major, 3 minor; round 3 0 major, 3 minor ('let it go to the human review'). Its four majors were a 16 s steam repeat, a mist warp that doubled the waterfall, a pool steam sheet over the bather and a hard edge at each vent; all were look defects that every gate and acceptance test had passed. The wave-1 picture review and the rework re-check were Opus reviewers whose model ids and finding severities were not recorded (not counted); the re-check found no blocker. No reviewer changed files."
+    },
+    "independent": true,
+    "same_tier_as_worker": false,
+    "findings": {
+      "blocker": 0,
+      "major": 4,
+      "minor": 15
+    }
+  },
+  "repairs": {
+    "count": 4,
+    "by": "worker",
+    "note": "Estimate of repair rounds: 7b988c4 after review round 1 (steam texture length, warp mask, vents as the source, the minors), dcaf3ce after round 2 (vent fade, tile 0.35 to 0.38, pool steam density), the PR #70 rework, and the scud-edge repair inside it after the re-check. All by the worker session; the coordinator made none. Round 3's minors were recorded or deferred (duplicated _speed_w_s, check and report in clouds.py and mist.py; clouds intensity is a no-op with scud null; shear tearing at plume edges). Not counted: rebases."
+  },
+  "cost": {
+    "usd": null,
+    "tokens": null,
+    "basis": "unknown",
+    "source": "First delivery only. Main thread (estimate, from the usage fields of 456 assistant messages deduplicated by message id, 2026-11-22 08:19Z to 18:48Z; the transcript was compacted once, so it may undercount): input 932, output 472,867, cache creation 1,411,454, cache read 100,007,405. Review subagent 253,892 to 683,108 tokens (reported; see the review evidence). Rework session tokens, the re-check's tokens, the coordinator's budget run, CI runner time and currency cost were not recorded."
+  },
+  "practice_observation": "The independent reviewer found four look defects (a 16 s steam repeat, a doubled waterfall, a steam sheet over the bather, hard vent edges) that all gates and acceptance tests had passed, and the wave-1 picture review then asked for a map-only rework; the re-check of that rework found a hard scud line the rework itself had introduced, so reviewing the repair before merge caught a regression. The visible-motion gate and the painted warp pulled against each other (masking the warp to haze cut motion-in:mist below its floor and the worker met it by raising flow and loosening the mask with the numbers in view, disclosed); a gate for a layer whose job is to be still over structure would be cleaner. Costs: merging into a busy main behind a one-job CI runner took about 4 h and four rebases after #55 opened (estimate), acceptance runs on a loaded box were slow and made s08 skip, and main's study failed validation between EC-0's mask merge and #70. The card routed Terra and a Sonnet session delivered, so this does not test Terra."
+}

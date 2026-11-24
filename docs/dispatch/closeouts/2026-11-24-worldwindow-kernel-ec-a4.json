@@ -1,0 +1,104 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "worldwindow-kernel-ec-a4",
+  "closed_on": "2026-11-24",
+  "outcome": "WorldWindow kernel EC-A4: independently authored acceptance criteria and tests for the EC-4 to EC-7 effect classes (fire@1, electric@1, neon@1, thunder@1: the common criteria plus per-class criteria, stand-ins, kits and controls), then the clipping oracles that catch soft shoulders and flat flame clips (EC-4 S10, EC-7 S11, PR #71) and the wave-2 gaps found by the picture assessment (EC-5 writhe wander, own-patch light and re-strike variety on each strike's cores, and strike timing for EC-5 and EC-7), with the coordinator's rulings recorded.",
+  "work_refs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/plans/2026-11-20-effect-classes.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/effects/ec-4/CRITERIA.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/effects/ec-5/CRITERIA.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/effects/ec-6/CRITERIA.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/effects/ec-7/CRITERIA.md",
+    "docs/dispatch/closeouts/2026-11-22-worldwindow-kernel-ec-a-family-kit.json (the shared kit these sets moved onto; separate record)"
+  ],
+  "prs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/41",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/43",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/46",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/51",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/71",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/77"
+  ],
+  "acceptance": {
+    "state": "accepted",
+    "criteria": [
+      "Original sets, PRs #41 (EC-4, EC-7) and #43 (EC-5, EC-6), merged 2026-11-22 with CI green (reported): EC-4 19 criteria with revisions S1 to S8, EC-7 22 criteria with S1 to S10, EC-6 22 criteria with S1 to S17, EC-5 21 criteria with S1 to S22. Each set holds CRITERIA.md, an acceptance-owned stand-in, a kit with the fixture, oracles and public-API controls, tests c01 to c12 and a selfcheck, in two modes: the default judges the delivered class and study (before delivery it fails with the class or the study not registered or not existing), and ECA_FAMILY_SUBJECT=reference judges the stand-in so the tests pass a correct layer and every control fails. A dry study of the stand-in on the real storm scene was built for each set before review; the EC-5 dry study passed every review and smoke gate, and the EC-4 dry study passed its oracles, composition and budget. The EC-6 and EC-7 dry studies failed the seam gates on the no-motion floor (EC-7 interior steps 2.7e-5; EC-6 9.5e-6 against a floor of 1.64e-5), which the coordinator resolved by a floor revision (see the EC-1a seam-floor record).",
+      "Follow-up PRs of 2026-11-22: #46 (161eea3) recorded the coordinator's rulings (EC-4 S9, S6 signed off; EC-6 S18, A1 without veto; EC-5 S23, writhe.cells 200 is the plan value; EC-5 S24, the pulse-free stretched variant at 214 cells, because at 200 the stretched wrap lands 0.07 of a cell from a lattice point and layer seam could not see it; notes on K1, K3, K4, lamp strokes, the seam floor and protect). #51 (7465ce3) moved EC-4 to EC-7 onto eca.family and eca.kernel_api and deleted ec-4/family_kit.py: all 636 test-id by mode comparisons give the same outcome as on 161eea3, and the only message changes are the documented subject and Study.path texts.",
+      "Clipping oracles, PR #71 (462dd5d; verify green; independent review of three rounds, the last passed). EC-7 criterion 17 (S11) counts a visible sky pixel as clipped at a channel of 245 or more (within 10 codes of white), limit 5 %; the 6 EV control passed at 255 (0.003 to 0.011) and fails counted from 245 (0.108 to 0.408). The merged study at 1.8 EV fails at frames 53, 320, 578 and 861: 0.031, 0.025, 0.053 and 0.076. EC-4 criterion 20 (S10) counts, at each emitter's brightest frames, flame pixels with a channel at 254 or more that the painted flame holds under 245, per channel, at 3440x1475, limit 5 %; it counts flat clipping and not near-white because plan 5.7's roll-off eases cores towards white by design. The merged fire study fails: 0.521 (frame 18), 0.283 (386), 0.138 (980), 0.177 (171), superseding the draft's 0.340, 0.251, 0.136, 0.150. Feasibility: light.rolloff on the added light passes at knee 0.8 (0) and 0.9 (at most 0.021) and fails at 0.95; a headroom roll-off or glow clips 0; the plan's depth 0.25 without roll-off still fails. The repairs are in other records.",
+      "Wave-2 gaps, PR #77 (7001645, merged fast-forward 2026-11-24 by the coordinator after verify was green at 06:30Z; only acceptance/effects/ec-5 and ec-7 changed): EC-5 criterion 22 (S25, worded by S29), the writhe wanders: motion across the path at least 0.04 A and the track's half-second mean keeps at least half of it, read on tiles projected across the path on four grids; the merged study fails with a share of 0.323 to 0.329, the 40-cell fixture reads 0.899 for the stand-in and 0.908 to 0.909 for the delivered class. Criterion 23 (EC-5 S26, EC-7 S12), strike timing: the coefficient of variation of onset gaps is at least 0.2, over the in-loop gaps from 3 events, over both cyclic gaps at 2 events, and failing at 1 event; the merged studies fail (electric 0.032, thunder 0.034). EC-5 criterion 24 (S27), own patch: a per-pixel rounding interval plus 1 code on the glow variant; the study with neon's patch fails 64 of 64 frames (29.5 codes on 4,102 px) and passes at anchor_light 0, and the anchor-light-from-the-whole-patched-base control fails 58 of 58 fixture frames. EC-5 criterion 15 (S28), re-strike variety, re-read on the cores of each strike's mean gain with the bound, threshold and constant-key control unchanged and S9's union kept as a diagnostic: the stand-in reads 0.151, 0.258 and 0.319 at amplitudes 0.008, 0.012 and 0.016 (0.267, 0.450, 0.515 under S9) and the constant key 0.75 to 0.99. All measured by EC-A4.",
+      "Wave-2 rulings (coordinator): R-W2-1 sent the acceptance gaps to EC-A4, who writes criteria independently of EC-5, and EC-5 merges only once they are on main and pass; R-W2-5 required criterion 23 to judge 2-event schedules; R-W2-6 re-read criterion 15 on each strike's own geometry, because the required between-strike wander (std 3.3 px) fills the corridor and merged cores overlap by 0.66 to 0.70 where no-wander variants read 0.30 to 0.32, and the wander stays; R-W2-8 approved the measure (the wrap gap is left out from 3 events because it holds both seam guards and would inflate the CV; at 2 events the gaps must differ by at least 20 % of the loop); R-W2-9 made criterion 23 judge the realisation a scene ships, not the class across seeds; R-W2-10 kept criterion 24 at what the present interface can express (option a), because both mask-confined readings fail the merged study by design (84 % of neon's support lies inside electric's) and the outcome is not weakened, with light from the painting that falls on a foreign patch added to EC-9's review checklist and option (b), an ADR-0008 interface addition, held in reserve until a lit dial shows in the composite review."
+    ],
+    "note": "Six PRs, all merged fast-forward. Left open at this record: the merged EC-5 and EC-7 studies fail criteria 22 to 24 and 23 until EC-5's rework and EC-7's strike-spread repair land (EC-7 is released and EC-5 is next); EC-8 and EC-9 choose ritual signal ids that pass criterion 23 (the 2-event ritual realisation of 20.7 s and 27.3 s reads 0.1375 and fails); EC-A is to move the duplicated Timing and strike_timing helpers into eca/events.py now that #77 is on main. Known limits recorded by EC-A4: criterion 15 can miss a reused path under a rigid whole-arc sweep wider than the path change (a regular sinusoidal sweep of 12 px or more hides it on synthetic frames) and gives one pair at 2 events; criterion 24 bounds what another patch changes, not where light from the painting falls, and a roll-off that depends on the base would trip it; criterion 22 is calibrated on the noise lattice rate. Filament structure at 3440 has no criterion, with its reason recorded, and stays a picture-review item. Plan questions raised by these sets (seam floor, writhe value, EC-6's plan block over the 5 % cap, arc-support and v3b maps crossing protect, lamp strokes) were ruled on 2026-11-22 and are recorded in the sets and in other records."
+  },
+  "route": {
+    "complexity_decision": "Coordinator judgement: acceptance authorship held by a separate session so authors and reviewers differ from the implementers; EC-4 and EC-7 written by the session itself, EC-5 and EC-6 by two Opus workers in parallel from outcome briefs that pointed at the finished sets as templates, each set with its own independent Opus reviewer. No Luna or Terra card route is recorded in the facts.",
+    "selected": {
+      "role": "acceptance author (acceptance session)",
+      "harness": "claude-code desktop side session",
+      "model": "unknown (coordinator routing; the model is not stated in the facts)"
+    },
+    "observed": {
+      "role": "acceptance author",
+      "harness": "claude-code (the facts do not name the harness version, effort or permission mode)",
+      "model": "unknown (not stated in the facts)",
+      "evidence": "The session's own hand-over states who wrote and reviewed what, but not its model, and no transcript or trailer was read for this record. The wave-2 commits carry Co-Authored-By trailers that were not read."
+    },
+    "suboutcomes": [
+      {
+        "role": "EC-5 electric@1 criteria and tests (PR #43)",
+        "harness": "claude-code worker (the facts do not name the mechanism)",
+        "model": "Opus (exact model id not recorded)",
+        "evidence": "Run in parallel with the EC-6 worker from a brief pointing at the finished EC-4 and EC-7 sets as templates. Minutes and tokens not recorded."
+      },
+      {
+        "role": "EC-6 neon@1 criteria and tests (PR #43)",
+        "harness": "claude-code worker (the facts do not name the mechanism)",
+        "model": "Opus (exact model id not recorded)",
+        "evidence": "As the EC-5 worker. Minutes and tokens not recorded."
+      },
+      {
+        "role": "EC-4 and EC-7 review fixes (PR #41)",
+        "harness": "claude-code worker (the facts do not name the mechanism)",
+        "model": "Opus (exact model id not recorded)",
+        "evidence": "One worker applied the fixes from the independent reviews (92c7e34 and 4fa9100 in the git log). Minutes and tokens not recorded."
+      }
+    ]
+  },
+  "coordinator_effort": {
+    "minutes": null,
+    "basis": "unknown",
+    "note": "Not recorded for the original sets and the clipping PR. Wave 2, by EC-A4's own count: three rulings messages and one release. Rulings and actions touching this outcome: the 2026-11-22 rulings recorded in #46, R-W2-1, R-W2-5, R-W2-6, R-W2-8, R-W2-9 and R-W2-10, the merge queue order and the release of #71 and #77."
+  },
+  "elapsed": {
+    "minutes": 3312,
+    "basis": "measured",
+    "note": "First criteria commit (04ae4fc, authored 2026-11-21 23:18Z) to the PR #77 merge at 2026-11-24 06:30Z as reported (55 h 12 min). The work was not continuous: original sets and the family-kit migration on 2026-11-22, #71 on 2026-11-23, wave 2 from the evening of 2026-11-23 (first wave-2 commit 21:39Z) to the merge, with a usage-limit pause in the last stretch (EC-A4 hit the account limit after opening #77). Work before the first commit is unknown, and active time is unknown. EC-A4 estimated wave 2 at about one day from outcome brief to merge, a usage-limit pause included (estimate)."
+  },
+  "review": {
+    "reviewer": {
+      "role": "independent reviewers (one per set; fresh reviewers in each later round)",
+      "harness": "claude-code (the facts do not name the mechanism)",
+      "model": "Opus for the original sets (exact model id not recorded); models of the #71 and #77 reviewers not recorded",
+      "evidence": "Original sets: each set had its own independent Opus reviewer, which also verified the repairs (EC-6 used a separate reviewer from EC-5). Reviewers used throwaway broken variants and found real gaps: an S-ignoring neon class, hard-coded blue arcs, the tongue lattice rate and the D-PCR lattice notch. The verifications gave 3 to 4 small follow-ups per set, all fixed before merge and not counted. PR #71 took three review rounds and PR #77 two fresh reviews (3 findings, then 6, none blocking in the second); their findings were not severity-labelled in the facts and are not counted. First wave-2 review: counting the wrap gap let a regular beat pass on a 3 s seam guard; x and y tracks counted brightness travelling along a still path; the flat 2-code own-patch tolerance was mis-derived. Second: criterion 24 tested a narrower thing than the outcome's wording (this became R-W2-10), no test covered S9's false failure, and 'slower than 2 Hz' misdescribed the reading. All fixed and confirmed by the reviewer."
+    },
+    "independent": true,
+    "same_tier_as_worker": true,
+    "findings": {
+      "blocker": 3,
+      "major": 19,
+      "minor": 30
+    }
+  },
+  "repairs": {
+    "count": 4,
+    "by": "worker",
+    "note": "A floor, counted from the git log: review-fix commits 92c7e34 (EC-4) and 4fa9100 (EC-7) for the original sets and 6bc5749 and a245f9f after the two wave-2 reviews. Other review-driven fixes (EC-5 and EC-6 fixes, the follow-ups of the verifications, PR #71's three rounds) cannot be counted from the facts. Counts of findings are the hand-over's, with should-fix mapped to major (estimate): EC-4 and EC-7 2 blocking, 8 should-fix, 9 minor; EC-6 1, 5, 11; EC-5 0, 6 and about 10 minor, counted as 10. No repairs were needed after the wave-2 merge; the routing coordinator made none."
+  },
+  "cost": {
+    "usd": null,
+    "tokens": null,
+    "basis": "unknown",
+    "source": "Not recorded: the hand-over states token totals were not measured. Worker and reviewer tokens, CI runner time and currency cost are unknown. Test-run times reported: each worker and review cycle took 20 to 140 min on the shared box and the fast suites 3 to 8 min per set."
+  },
+  "practice_observation": "Briefs that pointed workers at finished sibling sets plus a list of lessons let two Opus workers write the EC-5 and EC-6 sets in parallel, and reviewers with throwaway broken variants found real gaps the authors' tests had passed. The same independent authorship then reopened its own sets when pictures showed what they could not see: flat clipped flame cores and a soft sky shoulder (S10, S11), strikes on a metronome (criterion 23), arcs that shimmer without wandering (criterion 22) and anchor light spilling onto another layer's patch (criterion 24). Each was added as a stricter revision, with the merged studies failing as intended and the repairs routed to the implementers, rather than a weakened criterion. Measuring readings side by side on the fixture, the study and a stress variant before choosing one (S28), and synthetic worst cases to find the limits, worked; a fixture test of the failure the old reading had, written up front, would have saved a review round. Costs: each worker and review cycle took 20 to 140 min on the shared box, hand-backs sometimes arrived twice, and the account usage limit stopped the author after it opened #77, so the coordinator merged it. Reviewer and worker tiers match for EC-5 and EC-6, so this does not support a comparative-quality claim."
+}
