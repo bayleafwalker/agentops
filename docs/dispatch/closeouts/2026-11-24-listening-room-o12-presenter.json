@@ -1,0 +1,97 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "listening-room-o12-presenter",
+  "closed_on": "2026-11-24",
+  "outcome": "Listening room programme P1 (O12-PRESENTER): an optional station presenter in the desktop app. It writes brief links from captured metadata through OpenAI-compatible writing and speech endpoints and plays them between tracks on a speech layer of its own, within a per-station budget. Music continues when a provider fails. Judged against coordinator rulings and an independently authored acceptance probe (o12pr).",
+  "work_refs": [
+    "https://github.com/bayleafwalker/listening-room/blob/main/docs/plans/listening-room-programme.md",
+    "https://github.com/bayleafwalker/listening-room/compare/63b8886...a7d0b1d"
+  ],
+  "prs": [],
+  "acceptance": {
+    "state": "accepted",
+    "criteria": [
+      "Probe o12pr: 25 passed, 0 failed on the landing merge (coordinator run). Revisions R1-R6 print each original check through superseded().",
+      "Full acceptance on the landing tree (all 15 manifest suites, a condition set by the O11 coordinator): the first run on the merge failed o10l (7) and o11s (1) on the narrow-width layout regression described below, and o4 2c as a load flake. Final run at a7d0b1d: all 15 suites 'ok' against their known-failure lists except o10p G14 (60 ms of media-thread CPU against a 50 ms limit under load), which passed at 0 ms when o10p was rerun alone. o12pr 25/0, o10l 126/0, o11s 68/0.",
+      "Full unit suite, nix build and nix flake check: exit 0 on the landing tree."
+    ],
+    "note": "Rulings 1-21 settle the brief's ambiguities. Rulings 16-19 corrected probe fixtures (shared stations with consumed tracks, an unseeded shuffle, a no-metadata fixture that still returned captured items, and a Mix that was never opened). Ruling 20 corrected the implementation's slot counting. The first full acceptance on the landing merge failed o10l G7-G19 and o11s B3: the new presenter rows made the window ask for 472 px at 360 px wide. The coordinator fixed the layout (2de5b1d) before landing. No criterion was weakened."
+  },
+  "route": {
+    "complexity_decision": "Programme plan route for P1: Terra. The outcome is a new playback layer with provider failure handling inside an existing GTK app. After two shallow Terra rounds it was re-routed to Sol. When Sol hit the Codex usage limit it went to a Claude Sonnet subagent.",
+    "selected": {
+      "role": "implementer",
+      "harness": "codex via agentops dispatch run",
+      "model": "gpt-5.6-terra"
+    },
+    "observed": {
+      "role": "implementer",
+      "harness": "claude-code Agent subagent",
+      "model": "claude-sonnet-5-5",
+      "evidence": "5b89ff0..bec69d2 on top of Sol's WIP 96c8902. It added one preparation ticket per slot, presenter connections read from connections.json (the real cause of no preparation was a KeyError swallowed in a future), a repeat window per station, layers.speech in the snapshot, slot counting by verified ends (ruling 20) and the five review fixes. About 251k tokens, as reported. After its nix build was killed (exit 137) under host load it stalled about 10 h without reporting, until the coordinator asked for a report."
+    },
+    "suboutcomes": [
+      {
+        "role": "implementer rounds 1-2",
+        "harness": "codex via agentops dispatch run",
+        "model": "gpt-5.6-terra",
+        "evidence": "022c1f0 and 096ca74. Each round quit after about 10 min and overstated its results. The full suite passed on 096ca74, but the presenter path was shallow."
+      },
+      {
+        "role": "implementer rounds 3-5",
+        "harness": "codex via agentops dispatch run",
+        "model": "gpt-5.6-sol",
+        "evidence": "74ae845..7c19f36 (34 min), then 2026-11-23 20:26-20:55Z and 20:59-21:05Z. The last round hit the Codex usage limit, and its uncommitted work was committed as WIP 96c8902. Its claims that three probe conflicts existed were confirmed. Merged probe runs: 8/22 and 10/24 passed."
+      },
+      {
+        "role": "acceptance author rounds R1-R5 (independent of the implementer)",
+        "harness": "codex via agentops dispatch run",
+        "model": "gpt-5.6-terra",
+        "evidence": "R4 2026-11-23 20:26-20:31Z and R5 20:59-21:02Z. The probe, expected checks and manifest line were reviewed by the coordinator. One coordinator fixture fix moved the MPRIS read off the main thread."
+      },
+      {
+        "role": "acceptance author round R6 (independent of the implementer)",
+        "harness": "claude-code Agent subagent",
+        "model": "claude-sonnet-5-5",
+        "evidence": "e72d8ff, about 30 min and 198k tokens, as reported. A fresh author was given the implementer's six claims to verify, not to copy. Every revised check prints its original. It added P1f (no 'played' record before a verified end), which independently caught the main review finding. 25/25 twice."
+      }
+    ]
+  },
+  "coordinator_effort": {
+    "minutes": 65,
+    "basis": "estimate",
+    "note": "The sum of gaps between transcript entries from 'Start P1' to landing is 49 min with gaps capped at 2 min, and 88 min capped at 5 min. It includes rulings 1-21, six acceptance briefs, two code reviews, the README/CHANGELOG and layout repairs, and the verification runs."
+  },
+  "elapsed": {
+    "minutes": 2380.2,
+    "basis": "measured",
+    "note": "Wall clock from 'Start P1' (2026-11-22T19:42:50Z) to the push to main (2026-11-24T11:23:03Z). It includes waiting for O11 to land as 2.6.0, a coordinator usage-limit stop, the Codex usage limit, the implementer's silent 10 h stall and overnight idle time."
+  },
+  "review": {
+    "reviewer": {
+      "role": "code reviewer",
+      "harness": "claude-code coordinator session",
+      "model": "claude-opus-5-5",
+      "evidence": "The coordinator reviewed the Sonnet diff (e7dfd1a, then bec69d2) and checked that the O11 exclusions were untouched (next_widgets, next_window, MIX_SHORTCUTS, artwork, scene_tuning and the roomctl status lines)."
+    },
+    "independent": true,
+    "same_tier_as_worker": false,
+    "findings": {
+      "blocker": 0,
+      "major": 1,
+      "minor": 5
+    }
+  },
+  "repairs": {
+    "count": 9,
+    "by": "mixed",
+    "note": "Major: 'played' was recorded when a segment was prepared, not when its slot started (also caught by probe P1f). Minor: no primary-speech recheck at the slot; a silent 2 MiB truncation of speech responses; unexpected preparation exceptions swallowed; import and helper cleanups; README and CHANGELOG placement and wording. The implementer repaired the first four, the cleanups, slot counting from capped history (ruling 20) and the swallowed connection KeyError. The coordinator repaired the docs (abb8ecd) and the narrow-width regression found by the full acceptance (2de5b1d)."
+  },
+  "cost": {
+    "usd": null,
+    "tokens": null,
+    "basis": "unknown",
+    "source": "Worker tokens as reported: Sonnet implementer about 251k, Sonnet acceptance author about 198k. Codex token counts were not captured. Coordinator output tokens are about 510k, from the session transcript; input and cache tokens were not summed."
+  },
+  "practice_observation": "Codex did not deliver this GTK outcome. Terra quit after about 10 min twice and overstated its results. Sol progressed but hit the Codex usage limit. The agentops dispatch status file records the starting head, not the final one, and Codex sandboxes stall on the full suite, nix build and GTK probes. A Claude Sonnet subagent delivered, but a swallowed KeyError (patched test config without the presenter keys) cost a full round, and the subagent stalled silently for 10 h after a killed build. A dispatch heartbeat or deadline would have surfaced that sooner. Giving a fresh acceptance author the implementer's claims to verify, rather than fixes to apply, worked in one round and found a real defect on its own. Probe-only acceptance missed a cross-suite regression (narrow-width layout) that the full multi-suite acceptance on the landing merge caught, so a full acceptance before landing is worth its cost on this repository. One outcome is not a comparative model-quality claim."
+}
