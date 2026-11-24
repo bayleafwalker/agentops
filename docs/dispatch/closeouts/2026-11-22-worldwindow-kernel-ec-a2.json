@@ -1,0 +1,86 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "worldwindow-kernel-ec-a2",
+  "closed_on": "2026-11-22",
+  "outcome": "WorldWindow kernel EC-A2: independently authored acceptance criteria, tests and stand-in studies for the EC-2 atmospherics (clouds@1, mist@1, steam@2) and EC-3 precipitation (rain@1 in air and glass modes), written before their implementers started, with the coordinator's sign-offs and answers recorded and no kernel or shared file changed.",
+  "work_refs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/plans/2026-11-20-effect-classes.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/effects/ec-2/CRITERIA.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/effects/ec-3/CRITERIA.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/effects/ec-3/calibration-ec3.json"
+  ],
+  "prs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/40",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/42",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/50",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/52"
+  ],
+  "acceptance": {
+    "state": "accepted",
+    "criteria": [
+      "EC-2 set, PR #40 (merged fast-forward, main 8088289, CI verify green on the head): 14 criteria (the plan's twelve, 13 speed, 14 the study's structure), departures D1 to D8, revisions R1 (withdrawn), R2, R3 and S1 to S13 (S3 withdrawn). EC-3 set, PR #42 (merged fast-forward, main 9bc657f, CI verify green on the head): 14 criteria (the twelve, 13 per-band speed, 14 the study's structure), departures D1 to D8, revisions S1 to S19, with two studies (rain.yaml in air mode, glass.yaml with air rain below the pane, glass-mode rain on it and the lattice).",
+      "Calibration with the authors' own stand-ins (reported by the hand-over). EC-2: detail floor 0.341 (correct minimum 0.461, 1 px softened render 0.253); cross-fade detail pulse 0.086 on the fixture (correct 0.025, control 0.300); mist pulsing 0.0237 (correct 0.0145; no-coupling control 0.0467; linear 0.0386); steam on the study at the default 0.05 (correct 0.312 and 0.450, whitened 0.0035 and -0.012). EC-3 (calibration-ec3.json; the full run took 21 min on six jobs): direction limit 5 degrees on streaks only (0.055 on the fixture, 0.21 at the plan's size, whitened 82.7); refraction margin one code (weakest correct bead 6.89, best control -2.67); falls per loop 0.0287 (weakest correct 0.236, strongest control 0.0035); curtain sweep pairs agreeing 0.5 or more (correct 0.86, whitened 0.09); glass D-PCR on the default layer 0.341 against -0.299 whitened. Glass motion-in on the storm pane read 0.54 of the floor for the plan's values (open question 9).",
+      "Rulings recorded, PR #50 (merged fast-forward, main 3acb825, CI green on the head; an independent Opus reviewer passed the edits in two rounds). EC-2: R2 signed off (the floor is set against a render softened by 1 px, because the plan's control keeps more detail than a correct render); R3 signed off with its condition, which does not trigger (whitened steam reads 0.0035 and -0.012, so the study limit stays 0.05); R4, the steam@1 against steam@2 clip is built by a committed script, with a clip under 5 MB tracked or one the script prints. EC-3: S4, S13 and S17 signed off, D8 and open question 8 signed off as a recorded gap (glass slide magnitude recorded, not judged), strengthenings S20 to S25, R1 (a trace band replaces the one-feature variants) and R2 (scene.py and docs/scene-format.md join the scope), and open questions 1 to 6 and 9 answered (option a for 9: the plan's glass values are a sketch and studies may raise beads and slides, with the motion floor kept). PR #52 (main 79cb4c0, text only, independent review pass) recorded open question 10, option a: EC-3's implementer is the declared integration owner for the glass-region guard."
+    ],
+    "note": "Four PRs, all merged fast-forward on 2026-11-22. Both criteria sets stop at require_class on a stand-in until the classes are delivered, so the sets were first proved on the stand-ins. The shared-harness requests (glass in the direction oracle, the mist density speed oracle, moving ecfamily.py into eca/, EC-3's kit helpers) went to EC-A: the family-kit move landed in PR #45 (see the EC-A family-kit record) and the mist density speed oracle was parked by the coordinator, with the gap and what a wrong-speed mist looks like recorded in EC-2's CRITERIA.md. Recorded and open: cross-fade breathing of the study's 2 advect component is a candidate criterion if the human review sees breathing; limits that wait on calibration (the detail floor is energy-weighted and a correct layer on another region may land lower, which is evidence for a revision and not a scene override). The criteria could not see the look defects the picture review later found in the delivered classes; those are in the EC-2 and EC-3 records."
+  },
+  "route": {
+    "complexity_decision": "Coordinator judgement, as the hand-over states: EC-2 written by the acceptance session itself; EC-3 by one forked Opus worker, chosen for high semantic uncertainty (new oracles, glass mode); reviews by an independent Opus reviewer per family. No OpenCode or Luna and Terra split, because the work was calibration-heavy and needed one owner for the numbers.",
+    "selected": {
+      "role": "acceptance author (acceptance session)",
+      "harness": "claude-code desktop side session",
+      "model": "unknown (coordinator routing; the model is not stated in the facts)"
+    },
+    "observed": {
+      "role": "acceptance author",
+      "harness": "claude-code (the facts do not name the harness version, effort or permission mode)",
+      "model": "unknown (not stated in the facts)",
+      "evidence": "The hand-over names the forked EC-3 worker and the Opus reviewers but not the session's own model; no transcript or trailer was read for this record."
+    },
+    "suboutcomes": [
+      {
+        "role": "EC-3 criteria, tests and calibration (PR #42), a forked worker",
+        "harness": "claude-code forked worker",
+        "model": "Opus (exact model id not recorded)",
+        "evidence": "The worker's hand-over carries every EC-3 number; its full calibration run took 21 min on six jobs (reported). Total minutes and tokens not recorded."
+      }
+    ]
+  },
+  "coordinator_effort": {
+    "minutes": null,
+    "basis": "unknown",
+    "note": "Not recorded beyond the session's own count of three routing messages. Rulings touching this outcome: EC-2 R2 and R3, the clip rule, EC-3 S4, S13, S17, D8 and open questions 1 to 9, and question 10 (option a)."
+  },
+  "elapsed": {
+    "minutes": 912,
+    "basis": "estimate",
+    "note": "First criteria commit (b966016, authored 2026-11-21 23:49Z) to the head commit of PR #52 (79cb4c0, 2026-11-22 15:01Z): 15 h 12 min; PR #52's merge time is not recorded, so this is a lower bound, and work before the first commit is unknown. The hand-over estimates about 1.5 days of wall clock from brief to the EC-3 PR, 2026-11-21 to 2026-11-22, mostly renders and calibration under the shared-box limits (at most 8 workers, single-threaded BLAS). Active time is unknown."
+  },
+  "review": {
+    "reviewer": {
+      "role": "independent reviewer, one per family",
+      "harness": "claude-code (the facts do not name the mechanism)",
+      "model": "Opus (exact model id not recorded)",
+      "evidence": "EC-2: three rounds; round 1 gave 11 findings (severities not recorded, not counted), round 2 gave 1 blocking, 3 important and 4 minor, round 3 passed. EC-3: round 1 gave 3 blocking, 6 important and 10 minor, round 2 gave 2 important and 6 minor and needed no further round (the fix diff was checked by the author). Important mapped to major. The main repair was the EC-2 detail floor: under the study method the plan's control inverted, which led to R2 and the S12 pulse. Both families' reviews found criterion defects, not style. The PR #50 edit review (two rounds) and the PR #52 review (pass) are not counted."
+    },
+    "independent": true,
+    "same_tier_as_worker": true,
+    "findings": {
+      "blocker": 4,
+      "major": 11,
+      "minor": 20
+    }
+  },
+  "repairs": {
+    "count": 4,
+    "by": "worker",
+    "note": "Estimate: two repair rounds for EC-2 (after rounds 1 and 2) and two for EC-3 (after rounds 1 and 2). Not counted: the coordinator-ruling round 3 changes and the PR #50 and #52 review rounds. The routing coordinator made none."
+  },
+  "cost": {
+    "usd": null,
+    "tokens": null,
+    "basis": "unknown",
+    "source": "Not recorded. Calibration compute other than the EC-3 full run (21 min on six jobs), reviewer and worker tokens, CI runner time and currency cost are unknown."
+  },
+  "practice_observation": "The stand-in study on the real storm scene (s09 in each family) found problems the fixture tests passed: in EC-2 the detail inversion, the steam D-PCR (R3) and unused digest pins; in EC-3 the far band's visibility, the storm-glass motion-in conflict and splashes and rings skewing direction. Independent reviews found real criterion defects in both families (4 blocking over five rounds), not style. Limits were calibrated against the authors' own stand-ins, so several wait on calibration against a delivered class. The pattern of building a stand-in study on the real scene before review was carried into the EC-4 to EC-7 sets. Reviewer and worker tiers match for EC-3 (both Opus), so this does not support a comparative-quality claim."
+}
