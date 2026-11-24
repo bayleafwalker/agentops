@@ -1,0 +1,76 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "worldwindow-kernel-ec-5",
+  "closed_on": "2026-11-24",
+  "outcome": "WorldWindow kernel EC-5: electric@1 (lightning arcs: phased writhe, branches, spill, anchor light) and the ritual electric study, judged by the independent EC-A EC-5 criteria and independent look reviews. PR #69 is the first electric@1 merge; PR #79 is the rework after the picture assessment (filaments, between-strike wander, strike beat, map-driven anchor light, strike spill, anchor_exclude). The class stays @1 and every new parameter is additive and default off.",
+  "work_refs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/plans/2026-11-20-effect-classes.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/effects/ec-5/CRITERIA.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/effects/electric.md"
+  ],
+  "prs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/69",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/79"
+  ],
+  "acceptance": {
+    "state": "accepted",
+    "criteria": [
+      "PR #69, measured on the final tree before the rebase (head 60f630b, one run_all.sh, 26 min 34 s; thread caps 1, nice 10, ECA_FAMILY_JOBS 2): acceptance/effects/ec-5 fast 84 passed, slow 9 passed, budget 3 passed (judged at load 8.1 to 8.8 on 16 CPUs: 0.0370 s per frame at review against 0.15, 0.2263 s at 3440x1475 against 2.0, tests/effects/electric 17.7 s against 60), repo pytest 1106 passed. Study gates all passed: seam-step 0.853, seam-acceleration 0.842 (limit 1.1), protect 0, motion-out 0, determinism 0, motion-in electric-arcs 3.12e-3 (floor 1.65e-4), coherence D-PCR 0.420 (limit 0.05). After the rebase onto main 0b515de (head c38b136): fast 84 passed and 187 passed across electric, static determinism, review and promote tests; slow, budget and the repo suite were not re-run on the rebased head (CI verify ran on it and was green).",
+      "PR #79 (rework), measured on head 88d5b7a and then re-checked after the docs and record commit c63de57 (code digest d31373532bcf unchanged): ec-5 fast 96 passed, slow 10 passed, budget 3 passed (0.1040 s per frame at review, 0.3661 s at 3440, least of 3 passes at load 24), repo pytest 1161 passed; electric and static determinism 182 passed, and on c63de57 electric, determinism, review and promote 180 passed. Criteria read from main (EC-A4 PR #77): criterion 15 IoU 0.279, 0.274, 0.335 (limit 0.4); 16 writhe motion 0.244 to 0.367 px per frame (band 0.048 to 1.44); 22 wander share 0.80 to 0.84 with 17 to 33 tracks (at least 10); 23 in-loop gap CV 0.51 (at least 0.2); 24 pass. Gates: seam-step 0.573, seam-acceleration 0.602, motion-in 4.62e-3, d-pcr 0.2226. Exclusion share 2.95 % of 1151 steps (3.65 % worst case) under the 5 % cap. EC-9 criterion 9 counterfactual restored share over 16 frames: panel 0, dial 0, sphere 0.0017 to 0.0023 (limit 0.02).",
+      "Disclosed realisation choice under coordinator ruling R-W2-9: the study's signal id is arc-night. 40 candidate ids were scanned for the in-loop gap CV (15 passed 0.2); 6 were rendered and read on criteria 15, 16 and 22; arc-lightning failed criterion 22 on coverage only (the armillary bolt, 8 tracks); 5 passed and arc-night shipped (most tracks on the weakest arc, 17; CV 0.51; gaps 6.4 and 19.6 s, 22.0 s across the wrap). 9 CV-passing ids were not rendered. No criterion or parameter changed for it. It is stated in the PR body, docs, review record and the reviewer's brief."
+    ],
+    "note": "PR #69: 10 commits, merged fast-forward by the coordinator tooling at head c38b136 after verify passed, pushed once to a new branch (no force-push); diff +2168 -0 over 14 files, all in owned paths, frozen M1 effects untouched. Review record reviews/long-chant-ritual-electric/2026-11-23-d4d6a544.yaml, decision hold. PR #79: 8 commits on main 85bab18, merged fast-forward-only at c63de570676913aae68d78aabf92dcd2e6c7eef0 (origin/main is that sha) after verify passed; review record decision hold, pending the human look review. The PR bar could not bind a Forgejo PR in either case. Open after #79 (recorded in docs/effects/electric.md): reviewer minors M1 strike punch halved, M2 strand spread does not scale with arc length (lasso loops on the bolt and the island top at 3440), M3 brightness variation along the path about half the painting's, M4 3 to 6 path points (old); nits N1 two 20 s stretches with no strike, N2 dull dial in the electric-only study; earlier open items: the painted strand beside the island arc stays under protect (batched EC-0 asset pass), the spill soft outline and disc-shaped dial glow, and the EC-6 dark band where the arc corridor crosses the sigils (neon's ARC_FLOOR mask weight, an integration decision). Not run: ECA_FAMILY_SUBJECT=reference; the master sha256 was not recomputed after the PR #69 rebase (unknown whether identical); the old-study byte-identity check was last run mid-rework on 7 sampled frames, not on the final head; the full acceptance run was not repeated on c63de57 (docs and record only). R-W2-11 was answered with a new anchor_exclude parameter (a hard cut where a scene-supplied mask is above 0)."
+  },
+  "route": {
+    "complexity_decision": "Card route Luna, as the brief said. No deterministic rule or classifier answer is recorded in the facts. Decomposition was judged not worthwhile (one tightly coupled class with its maps and study), by the worker.",
+    "selected": {
+      "role": "implementer",
+      "harness": "claude-code desktop side session",
+      "model": "Luna (card route)"
+    },
+    "observed": {
+      "role": "implementer",
+      "harness": "claude-code desktop app (Code tab, Agent SDK harness)",
+      "model": "claude-sonnet-5-5",
+      "evidence": "The worker's facts state the session model and that it did all design, implementation, repairs and study authoring in both PRs. No cheaper native worker, OpenCode Go or agentops dispatch run was used. Independent review was by claude-opus-5-5 subagents."
+    },
+    "suboutcomes": []
+  },
+  "coordinator_effort": {
+    "minutes": null,
+    "basis": "unknown",
+    "note": "Not recorded. Rulings and actions touching this outcome: accepting decay_s 0.035 under the 5 % exclusion cap, leaving the painted strand beside the island arc to the EC-0 asset pass, R-W2-9 (disclosed id choice) and R-W2-11 (anchor_map exclusion), the EC-6 dark-band answer, and release of both PRs."
+  },
+  "elapsed": {
+    "minutes": 2062,
+    "basis": "estimate",
+    "note": "Sum of two stretches. PR #69: session start 2026-11-22 19:44Z to the merge about 2026-11-23 18:11Z, about 22 h 27 min measured from timestamps (1347 min), including usage-limit pauses and a box reboot of unknown length. PR #79: first rework commit 2026-11-23 22:22 to the merge about 2026-11-24 10:17 local, about 715 min estimated from commit and merge times, including an idle gap while the box rebooted (length unknown) and the waits for four full verification runs. The two stretches are summed without correcting for the timestamp bases. Active time is unknown."
+  },
+  "review": {
+    "reviewer": {
+      "role": "independent reviewer",
+      "harness": "claude-code Agent subagent (read-only)",
+      "model": "claude-opus-5-5",
+      "evidence": "Opus 5.5 subagents that wrote none of the code. PR #69, three passes by one resumed reviewer: pass 1 ACCEPT WITH CHANGES (4 major, 3 minor, 2 nit), pass 2 REJECT as committed (1 blocking: the first anchor_light restored the painted filaments as static copies beside the live arcs; 2 minor), pass 3 ACCEPT WITH CHANGES (2 minor, 1 nit; nothing blocking or major open). The look was never rejected as a concept. PR #79: pass 1 ACCEPT WITH CHANGES (2 major, motion overshoot and tube-like forks, both fixed), pass 2 ACCEPT (four minors, three fixed in a later rework), and a fresh reviewer on the final head, ACCEPT WITH CHANGES, no blocking or major, 4 minors and 2 nits open, 61 tool uses and 601 s. Reported tokens for PR #69: 197,067 (pass 1), 233,487 (pass 2), 257,974 (pass 3); whether a resumed run's total includes earlier context is unknown, so they are not summed. PR #79 pass tokens other than the fresh pass's tool uses and time are not recorded."
+    },
+    "independent": true,
+    "same_tier_as_worker": false,
+    "findings": {
+      "blocker": 1,
+      "major": 6,
+      "minor": 20
+    }
+  },
+  "repairs": {
+    "count": 6,
+    "by": "worker",
+    "note": "Estimate of repair rounds across both PRs, grouped by the closeout: PR #69, three rounds after reviews (phased writhe, spill weighting and SPILL_FLOOR, a lamp taper and glow_gain in the tail-cut check; then anchor_light made part of the glow and low-passed after the blocking finding and gated on glow_gain); PR #79, three rework rounds (the two major findings, the pass-2 minors N1 to N3, then the id choice and the anchor_exclude addition). Authoring constraints behind gates: core_gain 2.4 to 1.95 (tail-cut check 0.59 at 2.4), decay_s 0.035 (the 5 % exclusion cap, accepted by the coordinator), anchor_light 1.4 (2 and 3.5 refused by the tail-cut check). No acceptance file edited and no gate weakened. Findings counts are totals as reported per pass and are not de-duplicated across passes; nits are counted as minor."
+  },
+  "cost": {
+    "usd": null,
+    "tokens": null,
+    "basis": "unknown",
+    "source": "Reviewer tokens for PR #69 as reported by the harness (197,067, 233,487, 257,974; not summed). Worker session tokens, the PR #79 reviewers' tokens, CI runner time and currency cost were not recorded."
+  },
+  "practice_observation": "The first PR was accepted and then re-opened by the picture assessment, which is why this outcome has two PRs. Measuring wander before choosing the bend, a 2-minute harness for criteria 15, 16 and 22 on the core variant, and the counterfactual restored-share measure kept the rework loops short, and a separate reviewer found what 84 unit and 96 acceptance tests missed (a writhe that breathed at 4.2 Hz, which the worker's own test had pinned as correct, and frozen painted filaments). The costs were visible: three full verification rounds of 26 min on the shared box for PR #69, a box reboot and two usage limits that killed background runs, and criterion 22 run in full only after the id changed for criterion 23, so its failure came late; one scope failure came from verifying on EC-A4's branch copy instead of main. The signal id was selected from scanned candidates and disclosed under R-W2-9, with no criterion or parameter changed; both review records stay on hold for the human look review."
+}
