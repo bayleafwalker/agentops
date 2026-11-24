@@ -1,0 +1,76 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "worldwindow-kernel-ec-8",
+  "closed_on": "2026-11-24",
+  "outcome": "WorldWindow kernel EC-8: the integrated storm scene (wizard-valley-storm), an independent review of it, and the operator's review record. PR #84 merged the scene; PR #85 added the operator's review records. The operator watched the master in motion and recorded decision reject, which opened a follow-up storm rework outcome (in progress), the D8 (b) path of human review finding issues with shipped motion.",
+  "work_refs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/effects/ec-8/CRITERIA.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/plans/2026-11-20-effect-classes.md"
+  ],
+  "prs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/84",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/85"
+  ],
+  "acceptance": {
+    "state": "accepted",
+    "criteria": [
+      "PR #84, acceptance/effects/ec-8 at the merge head (ECA_FAMILY_JOBS=4, nice 10, shared box): 92 passed, 1 failed, 0 skipped, 1127 s; the one failure was criterion 12 (test_review_record), a hold by design while the operator's record was pending (R-W2-15). Same result at the rebase onto 9cd076b (1088 s). pytest tests: exit 0 (174 s, 1161 tests). The merge was gated on python-3.12-tests-and-smoke-loop being Success on the exact head.",
+      "Gates (review and smoke, all pass): review seam-step 0.946, seam-acceleration 0.942 (limit 1.1), protect 0, motion-out 0, determinism 0; motion-in thinnest fire-post 2.546e-4 against floor 2.407e-4; 10 coherence and 10 foreground gates pass. Smoke seam-step 0.928, seam-acceleration 0.921. Rain lift ratios 0.836 to 0.864 (limits 1.049 to 1.090); sky clipping at 245+ at most 0.0081 (limit 0.05); flame cores fire-pool 0.033 (limit 0.05).",
+      "Shipped realisation (R-W2-9): signal front-bolts from thunder.yaml, EC-7's selection from 79 candidates, not re-selected (no id scan, no parameter change). Onsets 148, 447, 632, 845; in-loop gap CV 0.209 against 0.2. Excluded steps 36 of 1151 = 3.1 % against the 5 % cap, disclosed to the reviewer before it judged. Narrowings: none (no xfail, skip, raised limit or criterion edit).",
+      "PR #85, criterion 12 (the review-record test) passes on main with the operator's record. Either promote or reject passes it, by design. The operator's record is decision reject, with the note that the rain scene is not interacting with the environment sufficiently, the gate is in the background while the rain should be in the background. Recorded as the human-review result."
+    ],
+    "note": "PR #84 was merged fast-forward-only at 7a651da9a3d0407f1030997315f3dbebf54993cd (built on decbbf6, rebased onto 9cd076b and then d079fb8; no source file moved, code_digest 97067f87014a unchanged). Scene review digest 5159a0a28d3b4c76; one new pin, maps/shared/pane-rain-region.png. PR #85 was merged at 8324361 with the operator's review records for this scene and the ritual scene (R-W2-15). Contrast worth keeping: the still-frame independent model review passed the scene with minors and its record decision was hold, while the operator's review in motion rejected it, finding what the still-frame review did not. Known false failures under R-W2-4 (scope subject R-W2-13/14 not landed on main) in EC-0, EC-1a, EC-2, EC-3 and EC-9 scope tests were listed in the PR body. Open findings carried, none blocking: arch matte under-covers thin hanging cords (EC-0 minor), EC-7 follow-ups (bolt-end stratification, constant-width bolt tube), the 19 s lull across the wrap and the post lamp flicker not viewed in motion by the reviewer. The follow-up storm rework outcome is in progress and is not part of this record."
+  },
+  "route": {
+    "complexity_decision": "Not recorded as a deterministic rule or classifier answer. The work was judgment-heavy and sequential (selection, review, repair), so it was not decomposed or delegated to a cheaper worker.",
+    "selected": {
+      "role": "implementer",
+      "harness": "claude-code desktop side session",
+      "model": "claude-sonnet-5-5"
+    },
+    "observed": {
+      "role": "implementer",
+      "harness": "claude-code desktop app (Agent SDK harness)",
+      "model": "claude-sonnet-5-5",
+      "evidence": "The worker's facts state the session model authored the scene and repairs; no Luna, OpenCode Go or agentops dispatch run was used. The independent review was by an Opus-family subagent."
+    },
+    "suboutcomes": []
+  },
+  "coordinator_effort": {
+    "minutes": null,
+    "basis": "unknown",
+    "note": "Not measured. Estimate of the kind of work after PR #84: writing the operator-review instructions, transcribing the operator's decision and running the record tests. During PR #84 one question to the coordinator (R-W2-15) was already answered in the brief and rulings file, so it cost a message and no work."
+  },
+  "elapsed": {
+    "minutes": 125,
+    "basis": "estimate",
+    "note": "Author session for PR #84 only, about 2 h 05 min by session timestamps, 12:38Z to 14:42Z; it includes a 612 s review package build, a 1789 s first slow run, two 18 min suites after the rebases, two review rounds and one context compaction. The time to PR #85 and the operator's review is unknown."
+  },
+  "review": {
+    "reviewer": {
+      "role": "independent reviewer",
+      "harness": "claude-code Agent subagent",
+      "model": "Opus-family alias opus; exact model id not reported",
+      "evidence": "Still-frame review at native-size crops at 960 and 3440 wide, before and after, in 2 rounds: 1 major (beads on thin hanging cords) repaired by a new pane-rain region map and regenerated scene; 0 blockers; minors carried (count not recorded, so the minor total is a floor of 0). Reported reviewer tokens: about 141.8k in round 1 and about 183.8k cumulative at round 2. The operator then reviewed the master in motion and rejected it (see acceptance); that human review is recorded separately and is not counted in the findings."
+    },
+    "independent": true,
+    "same_tier_as_worker": false,
+    "findings": {
+      "blocker": 0,
+      "major": 1,
+      "minor": 0
+    }
+  },
+  "repairs": {
+    "count": 1,
+    "by": "worker",
+    "note": "One repair round after the independent review (the pane-rain region map). The operator's reject opened a separate follow-up outcome; it is not counted as a repair here."
+  },
+  "cost": {
+    "usd": null,
+    "tokens": null,
+    "basis": "unknown",
+    "source": "Reviewer tokens only (about 183.8k cumulative, harness-reported, not a total). Worker session tokens, CI time and currency cost were not recorded. Largest drivers: a 13 GB review package and three acceptance runs of 18 to 30 min, one per main move."
+  },
+  "practice_observation": "Review before the long chains caught the beads defect before the acceptance suite ran against the final scene. The still-frame model review and the acceptance gates passed a scene that the operator rejected on watching it in motion: the interaction between the rain and the environment was not something the stills and gates measured. This is the D8 (b) path working as intended, and it argues for putting motion review by the human earlier or giving the reviewer a motion clip. To improve: read the brief and rulings file before asking a question (R-W2-15 was already answered), and the kit's printed readings are only visible with -s."
+}

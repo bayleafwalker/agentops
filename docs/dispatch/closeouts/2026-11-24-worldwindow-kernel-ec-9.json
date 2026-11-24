@@ -1,0 +1,78 @@
+{
+  "schema": "outcome-closeout-record/v1",
+  "outcome_id": "worldwindow-kernel-ec-9",
+  "closed_on": "2026-11-24",
+  "outcome": "WorldWindow kernel EC-9: the integrated ritual scene (long-chant-ritual), an independent review, the operator's review record and the release. PR #82 merged the scene, PR #85 the operator's records (decision promote), and PR #87 the release through worldwindow promote, writing releases/long-chant-ritual.yaml at the operator's explicit instruction. An optional follow-up for more in-situ arcs is in progress.",
+  "work_refs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/acceptance/effects/ec-9/CRITERIA.md",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/src/branch/main/docs/plans/2026-11-20-effect-classes.md"
+  ],
+  "prs": [
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/82",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/85",
+    "https://git.apps.kotona.app/bayleaf/worldwindow-kernel/pulls/87"
+  ],
+  "acceptance": {
+    "state": "accepted",
+    "criteria": [
+      "PR #82, acceptance/effects/ec-9: 76 passed, 2 skipped (criterion 13 fire and clouds: no such layer), 1 failed (criterion 15 review record, a hold by design while the operator's record was pending). pytest tests: exit 0. The merge was gated on python-3.12-tests-and-smoke-loop being Success on the exact head.",
+      "Gates: review seam-step 0.6149 (52 of 1151 steps excluded), seam-acceleration 0.7876, protect 0, motion-out 0, determinism 0, motion-in electric 4.465e-3 (floor 1.648e-4) and neon 2.382e-4 (floor 1.563e-4). Smoke seam-step 0.7686, seam-acceleration 0.7078.",
+      "Shipped realisation (R-W2-5 route A, R-W2-9): signal id arc-surge-59, selected. 128 ids scanned, 52 pass the render-free checks, chosen by the smallest total lead of a strike's end to a turn-on. Worst-case exclusion 57/1151 = 4.952 %, realized 52/1151 = 4.518 % against the 5 % cap. Gap CV 0.2204. Disclosed to the reviewer before it judged. Narrowings: none.",
+      "PR #85: the operator recorded decision promote, with the note 'Storm is fine, though could be more in-situ'. The operator called it storm, but the note is about this ritual scene's arcs. Criterion 15 (the review-record test) passes on main with the record.",
+      "PR #87: the release. cb1c6ce wrote releases/long-chant-ritual.yaml via worldwindow promote. The first release PR (86) failed CI: its promote-refusal step asserted test ! -e releases, false once any release exists. 6acd1eb compares a releases/ snapshot before and after the refused promote. 615f987 took an independent review's minor findings: the snapshot is taken right after checkout and is symlink- and type-safe. Merged fast-forward-only."
+    ],
+    "note": "PR #82 merged at 9cd076b014ae2fafdbd6d0bc7f3e678ac78ac127 (base decbbf6, no rebase). Scene review digest 6e0a1ac7400d158f; the release was written at scene digest 6e0a1ac7. PR #85 merged at 8324361 (the operator's records for this scene and the storm scene). PR #87 merged fast-forward-only at 615f9872d3ff876378902efb23743dd6f30da7b1 with three commits (cb1c6ce, 6acd1eb, 615f987). PR #86 is superseded and unmerged; the operator closes it, because the bot token cannot close PRs. Open findings carried, none blocking: panel edge shelf (EC-6 map change), EC-5 strand loops at strikes (follow-up), ignition near a pop (cost of the 5 % cap), hard one-frame turn-offs (EC-6 fade-out candidate), a weak strike-to-dial relation, motion not viewed by the model reviewer, and one unexplained anchor_patch.py control read of 0.0000 (later runs read correctly; cause unknown)."
+  },
+  "route": {
+    "complexity_decision": "Not recorded as a deterministic rule or classifier answer. The work was judgment-heavy and sequential (selection, review, repair), so it was not decomposed or delegated to a cheaper worker.",
+    "selected": {
+      "role": "implementer",
+      "harness": "claude-code desktop side session",
+      "model": "claude-sonnet-5-5"
+    },
+    "observed": {
+      "role": "implementer",
+      "harness": "claude-code desktop app (Agent SDK harness)",
+      "model": "claude-sonnet-5-5",
+      "evidence": "The worker's facts state the session model did the selection, authoring and repair; only the independent review used a separate model. Who did the PR #87 release and CI fix, and with which model, is not in the facts."
+    },
+    "suboutcomes": []
+  },
+  "coordinator_effort": {
+    "minutes": null,
+    "basis": "unknown",
+    "note": "Not measured. Estimate of the follow-through work: writing the operator-review instructions, transcribing the operator's decision and running the record tests; then the release, the failed CI and its fix: one extra PR, an independent review of the fix and about 3 CI runs of about 7 minutes each (about 21 min of CI wall clock, an estimate). No coordinator effort after the brief for PR #82."
+  },
+  "elapsed": {
+    "minutes": 70,
+    "basis": "estimate",
+    "note": "Author session for PR #82 only, about 1 h 10 min by session timestamps, including the 13.5 min EC-9 suite, about 2 package builds and 2 review passes. The time from PR #82 to the operator's record, the release and the CI fix (last merge 19:20 local, 2026-11-24) is unknown."
+  },
+  "review": {
+    "reviewer": {
+      "role": "independent reviewer",
+      "harness": "claude-code Agent subagent",
+      "model": "Opus (exact model id not recorded)",
+      "evidence": "PR #82: 2 review passes, 1 major (MA1, a painted filament ghost about 2x at 3440 wide, repaired by lowering ARC_FLOOR from 0.30 to 0.15 and regenerating the maps), 0 blockers, 6 minors and nits carried; the reviewer judged from stills. PR #87: a separate independent review of the CI fix returned minor findings, all taken in 615f987; their number, the reviewer and its model are not recorded and are not counted. The operator's promote is a human decision, recorded in acceptance."
+    },
+    "independent": true,
+    "same_tier_as_worker": false,
+    "findings": {
+      "blocker": 0,
+      "major": 1,
+      "minor": 6
+    }
+  },
+  "repairs": {
+    "count": 3,
+    "by": "worker",
+    "note": "Estimate: one repair after the PR #82 review (ARC_FLOOR), one CI fix after PR #86 failed (6acd1eb) and one review-driven fix to it (615f987). PR #86 was superseded by PR #87."
+  },
+  "cost": {
+    "usd": null,
+    "tokens": null,
+    "basis": "unknown",
+    "source": "Not recorded: worker and reviewer tokens, CI runner time (about 3 runs of about 7 min each is an estimate) and currency cost. The long computations were the 128-id scan and four candidate core-oracle renders of 105 to 206 s each."
+  },
+  "practice_observation": "Review before the long chains paid for itself: it caught MA1 before the acceptance run, so the suite ran once. The release exposed a CI assumption that held only while no release existed (test ! -e releases); it failed on the first release PR and an independent review of the fix then found the snapshot-timing and symlink issues. Checks that assume an empty state should be written against a before and after comparison. The operator's promote note referred to storm while the scene was the ritual, so the record transcribes the note as written and says which scene it concerns. To improve: the criteria's printed readings are only visible with -s, which cost a second 90 s run."
+}
