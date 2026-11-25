@@ -1,0 +1,40 @@
+{
+  "inventory": {
+    "schema_version": 1,
+    "inventory_id": "synthetic-test-stack",
+    "scenario": "operator_absent_automation_continues",
+    "source_revisions": {"synthetic-fixture": "0000000000000000000000000000000000000000"},
+    "obligations": [
+      {
+        "id": "certificate", "kind": "expiry", "source_ref": "fixture:certificate", "max_age_seconds": 3600,
+        "probe": {"kind": "none"}, "renewer_id": "renewal",
+        "recovery_path": [{"id": "network", "basis": "source", "evidence_ref": "fixture:recovery"}]
+      },
+      {
+        "id": "renewal", "kind": "renewal", "source_ref": "fixture:renewal", "max_age_seconds": 3600,
+        "probe": {"kind": "none"},
+        "prerequisites": [{"id": "network", "basis": "source", "evidence_ref": "fixture:renewal-dependency"}]
+      },
+      {"id": "network", "kind": "prerequisite", "source_ref": "fixture:network", "max_age_seconds": 3600, "probe": {"kind": "none"}},
+      {
+        "id": "drill", "kind": "drill", "source_ref": "fixture:drill", "max_age_seconds": 7776000,
+        "probe": {"kind": "none"},
+        "due": {"at": "2027-01-19T23:59:59+02:00", "basis": "configured", "evidence_ref": "fixture:policy"}
+      }
+    ]
+  },
+  "observed_at": "2026-11-13T10:00:00Z",
+  "observations": [
+    {"subject_id": "certificate", "observed_at": "2026-11-13T10:00:00Z", "evidence_ref": "fixture:cert-observation", "basis": "runtime", "state": "available", "due_at": "2026-11-14T10:00:00Z"},
+    {"subject_id": "renewal", "observed_at": "2026-11-13T10:00:00Z", "evidence_ref": "fixture:renewal-observation", "basis": "runtime", "state": "available", "last_success_at": "2026-11-13T09:55:00Z"},
+    {"subject_id": "network", "observed_at": "2026-11-13T10:00:00Z", "evidence_ref": "fixture:network-observation", "basis": "runtime", "state": "available"}
+  ],
+  "expected": {
+    "coverage": {"expected": 4, "observed": 3, "unknown": 1, "unknown_ids": ["drill"]},
+    "first_failure_status": "unknown",
+    "conditional_limit": null,
+    "certificate_renewal_status": "available",
+    "drill_due_at": "2027-01-19T21:59:59Z",
+    "drill_deadline_type": "proof_obligation"
+  }
+}
