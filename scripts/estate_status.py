@@ -1483,6 +1483,12 @@ def _parse_flux_source(r: dict[str, Any]) -> dict[str, Any]:
     raise ValueError("no GitRepository")
 
 
+def _minimize_flux_source(text: str) -> str:
+    """Keep only the GitRepository coordinates before probe redaction."""
+    spec = _parse_flux_source({"stdout": text})
+    return json.dumps({"kind": "GitRepository", "spec": spec})
+
+
 def _tag_tree_fact(probe: Probe, key: str, repo: Path, tag: str, remote_tags: dict[str, Any]
                    ) -> tuple[dict[str, Any], str | None]:
     """Whether the local tag is the remote's tag (same commit) and when that was observed."""
@@ -1507,7 +1513,7 @@ def collect_vuoro_cloud(probe: Probe, *, fetch: bool,
     desired: dict[str, Any] = {}
     canonical = _git_config(probe, "vuoro-cloud.canonical-remote", repo, "claude.canonicalRemote") or "origin"
     first = git(probe, "vuoro-cloud.flux-source.canonical", repo, "show",
-                f"{canonical}/main:{cfg['flux_source_file']}")
+                f"{canonical}/main:{cfg['flux_source_file']}", transform=_minimize_flux_source)
     source = from_probe(first, "artifact", _parse_flux_source)
     watched = None
     if is_known(source):
@@ -1524,7 +1530,7 @@ def collect_vuoro_cloud(probe: Probe, *, fetch: bool,
         if watched and watched != canonical:
             # The constraint Flux applies is the one on the remote it watches.
             second = git(probe, "vuoro-cloud.flux-source.watched", repo, "show",
-                         f"{watched}/main:{cfg['flux_source_file']}")
+                         f"{watched}/main:{cfg['flux_source_file']}", transform=_minimize_flux_source)
             source = from_probe(second, "artifact", _parse_flux_source)
         if watched:
             _, current, at = ref_current(probe, "vuoro-cloud.watched-main", repo, f"{watched}/main",
