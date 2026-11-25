@@ -44,6 +44,34 @@ OTHER = "sha256:" + "1" * 64
 
 
 class CloudCredentialHardeningTests(unittest.TestCase):
+    def test_flux_source_observation_survives_redaction_of_unrelated_document(self):
+        manifest = """\
+kind: GitRepository
+spec:
+  url: https://example.test/org/project
+  ref: {tag: v1}
+---
+kind: Kustomization
+metadata: {name: project-operators, namespace: flux-system}
+"""
+        probe = estate.Probe()
+        probe.register_secret("synthetic-operator-proof")
+        with mock.patch.object(estate.subprocess, "run", return_value=subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=manifest, stderr=""
+        )):
+            unfiltered = estate.git(probe, "unfiltered", Path("."), "show", "main:source.yaml")
+            self.assertFalse(estate.is_known(estate.from_probe(
+                unfiltered, "artifact", estate._parse_flux_source,
+            )))
+            result = estate.git(
+                probe, "flux-source", Path("."), "show", "main:source.yaml",
+                transform=estate._minimize_flux_source,
+            )
+        self.assertNotIn("operators", result["stdout"])
+        self.assertEqual(estate._parse_flux_source(result), {
+            "url": "https://example.test/org/project", "ref": {"tag": "v1"},
+        })
+
     def credential(self, raw, mode=0o600, symlink=False):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
