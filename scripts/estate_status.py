@@ -19,8 +19,9 @@ an error. ``source`` is one of ``artifact`` (a file in Git or a recorded receipt
 ``live-api`` (an HTTP/Git-remote call), ``cluster`` (kubectl get), ``document``
 (a runbook statement) or ``derived`` (computed from named facts).
 
-The report is strictly read-only: kubectl is only ever called with ``get``, HTTP
-only with GET, and the host probes run diagnostics. No secret is decrypted:
+The report is strictly read-only: cluster probes use only kubectl reads, and the
+Cloud desired workloads use a local kubectl kustomize build, isolated from the
+cluster. HTTP uses GET and the host probes run diagnostics. No secret is decrypted:
 vuoro-cloud's tenant-runtime pin is read only from a digest-only rollout/status field, else unknown.
 ``--fetch`` updates remote-tracking refs in the local clones (no working-tree change)
 so desired state is read at the deploying ref rather than at a stale local one.
@@ -52,6 +53,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import io
 import http.client
 import errno
 import stat
@@ -60,12 +62,14 @@ import math
 import os
 import re
 import subprocess
+import tarfile
 import tempfile
 import sys
 import time
 import urllib.error
 import urllib.request
 from collections import Counter
+from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
@@ -502,6 +506,24 @@ class Probe:
             result["error"] = tail[0][:300]
         return self._store(key, result)
 
+    def cloud_app_workloads(self, key: str, repo: Path, commit: str) -> dict[str, Any]:
+        """Build the pinned Flux application tree; retain only workload metadata."""
+        if self.replay:
+            return self._replayed(key)
+        observed = _now()
+        evidence = f"git:{repo.name}@{commit} Flux vuoro-cloud-apps | local kubectl kustomize"
+        result: dict[str, Any] = {"observed_at": observed, "evidence": evidence}
+        try:
+            workloads = _compose_cloud_workloads(repo, commit)
+        except CompositionUnavailable as error:
+            result.update(ok=False, error=str(error))
+        except (OSError, ValueError, subprocess.TimeoutExpired, tarfile.TarError):
+            # Renderer/archiver errors can include manifest or Secret content.
+            result.update(ok=False, error="could not build the local Flux application tree")
+        else:
+            result.update(ok=True, stdout=redact(json.dumps(workloads, sort_keys=True)))
+        return self._store(key, result)
+
     def http(self, key: str, url: str, *, headers: dict[str, str] | None = None,
              secret_headers: dict[str, str] | None = None, timeout: int = 15,
              transform: Callable[[str], str] | None = None) -> dict[str, Any]:
@@ -732,30 +754,178 @@ def manifest_files(probe: Probe, key: str, repo: Path, ref: str,
 
 def declared_workloads(files: dict[str, str]) -> dict[str, Any]:
     """Deployments, CronJobs, Jobs and Flux Kustomizations declared in ``files``."""
-    out: dict[str, Any] = {"deployments": {}, "cronjobs": {}, "jobs": {}, "kustomizations": {}}
+    docs = []
     for path, text in sorted(files.items()):
         try:
-            docs = yaml_docs(text)
+            docs.extend((path, doc) for doc in yaml_docs(text))
         except Exception:  # noqa: BLE001 - a non-YAML-ish file is not a workload
             continue
-        for doc in docs:
-            kind, meta, spec = doc.get("kind"), doc.get("metadata") or {}, doc.get("spec") or {}
-            name = meta.get("name")
-            if kind == "Deployment":
-                containers = spec.get("template", {}).get("spec", {}).get("containers", [])
-                out["deployments"][name] = {
-                    "namespace": meta.get("namespace"), "replicas": spec.get("replicas", 1),
-                    "images": {c["name"]: c.get("image") for c in containers}, "path": path}
-            elif kind == "CronJob":
-                out["cronjobs"][name] = {"suspend": bool(spec.get("suspend", False)), "path": path}
-            elif kind == "Job":
-                containers = spec.get("template", {}).get("spec", {}).get("containers", [])
-                out["jobs"][name] = {"images": {c["name"]: c.get("image") for c in containers},
-                                     "path": path}
-            elif kind == "Kustomization" and "kustomize.toolkit.fluxcd.io" in str(doc.get("apiVersion")):
-                out["kustomizations"][name] = {"suspend": bool(spec.get("suspend", False)),
-                                               "path": path}
+    return _declared_workload_docs(docs)
+
+
+def _declared_workload_docs(docs: Iterable[tuple[str, dict[str, Any]]]) -> dict[str, Any]:
+    out: dict[str, Any] = {"deployments": {}, "cronjobs": {}, "jobs": {}, "kustomizations": {}}
+    for path, doc in docs:
+        kind, meta, spec = doc.get("kind"), doc.get("metadata") or {}, doc.get("spec") or {}
+        name = meta.get("name")
+        if kind == "Deployment":
+            containers = spec.get("template", {}).get("spec", {}).get("containers", [])
+            out["deployments"][name] = {
+                "namespace": meta.get("namespace"), "replicas": spec.get("replicas", 1),
+                "images": {c["name"]: c.get("image") for c in containers}, "path": path}
+        elif kind == "CronJob":
+            out["cronjobs"][name] = {"suspend": bool(spec.get("suspend", False)), "path": path}
+        elif kind == "Job":
+            containers = spec.get("template", {}).get("spec", {}).get("containers", [])
+            out["jobs"][name] = {"images": {c["name"]: c.get("image") for c in containers},
+                                 "path": path}
+        elif kind == "Kustomization" and "kustomize.toolkit.fluxcd.io" in str(doc.get("apiVersion")):
+            out["kustomizations"][name] = {"suspend": bool(spec.get("suspend", False)),
+                                           "path": path}
     return out
+
+
+class CompositionUnavailable(ValueError):
+    """A fixed, safe-to-record reason the local application build is inconclusive."""
+
+
+_KUSTOMIZATION_FILES = ("kustomization.yaml", "kustomization.yml", "Kustomization")
+_FLUX_APP_SPEC = {
+    "path", "sourceRef", "interval", "retryInterval", "dependsOn", "prune",
+    "suspend", "wait", "timeout", "healthChecks", "decryption",
+}
+
+
+def _cloud_app_root(text: str) -> Path:
+    try:
+        specs = [doc["spec"] for doc in yaml_docs(text)
+                 if doc.get("kind") == "Kustomization"
+                 and str(doc.get("apiVersion")).startswith("kustomize.toolkit.fluxcd.io/")
+                 and (doc.get("metadata") or {}).get("name") == "vuoro-cloud-apps"
+                 and (doc.get("metadata") or {}).get("namespace") == "flux-system"]
+        spec, = specs
+        source = spec["sourceRef"]
+        root = Path(spec["path"])
+        if (set(spec) - _FLUX_APP_SPEC or source.get("kind") != "GitRepository"
+                or source.get("name") != "vuoro-cloud"
+                or source.get("namespace", "flux-system") != "flux-system"
+                or root.is_absolute() or ".." in root.parts or root.parts[:1] != ("clusters",)):
+            raise ValueError("unsupported Flux application specification")
+    except Exception as error:
+        raise CompositionUnavailable("Flux application path or source cannot be established") from error
+    return root
+
+
+def _regular_archive_member(member: tarfile.TarInfo, target: str) -> tarfile.TarInfo | None:
+    if not (member.isdir() or member.isreg()):
+        raise CompositionUnavailable("release archive contains a non-regular entry")
+    return tarfile.data_filter(member, target)
+
+
+def _check_local_kustomizations(tree: Path, root: Path) -> None:
+    """Validate resource references before the renderer can resolve remote bases."""
+    visiting: set[Path] = set()
+    visited: set[Path] = set()
+
+    def visit(directory: Path) -> None:
+        if directory in visiting:
+            raise ValueError("resource cycle")
+        if directory in visited:
+            return
+        kustomization, = [directory / name for name in _KUSTOMIZATION_FILES
+                          if (directory / name).is_file()]
+        doc, = yaml_docs(kustomization.read_text())
+        if doc.get("kind") not in ("Kustomization", "Component"):
+            raise ValueError("unexpected Kustomize document")
+        visiting.add(directory)
+        for field in ("resources", "bases", "components"):
+            paths = doc.get(field, [])
+            if not isinstance(paths, list):
+                raise ValueError("invalid resource paths")
+            for value in paths:
+                resource = Path(value)
+                candidate = (directory / resource).resolve()
+                if (resource.is_absolute() or not candidate.is_relative_to(tree)
+                        or not candidate.exists()):
+                    raise ValueError("resource not in the archived tree")
+                if candidate.is_dir():
+                    visit(candidate)
+        visiting.remove(directory)
+        visited.add(directory)
+
+    try:
+        visit(root)
+    except Exception as error:
+        raise CompositionUnavailable("Kustomize resources are not a complete local tree") from error
+
+
+def _read_composed_workloads(result: dict[str, Any]) -> dict[str, Any]:
+    data = _json_out(result)
+    if (not isinstance(data, dict) or not isinstance(data.get("deployments"), dict)
+            or not data["deployments"] or not isinstance(data.get("cronjobs"), dict)):
+        raise ValueError("no complete composed workload inventory")
+    for name, dep in data["deployments"].items():
+        if (not is_dns1123(name) or not isinstance(dep, dict)
+                or type(dep.get("replicas")) is not int or dep["replicas"] < 0
+                or not isinstance(dep.get("images"), dict) or not dep["images"]
+                or any(not isinstance(image, str) or not image for image in dep["images"].values())):
+            raise ValueError("invalid composed deployment")
+    for name, cron in data["cronjobs"].items():
+        if not is_dns1123(name) or not isinstance(cron, dict) or type(cron.get("suspend")) is not bool:
+            raise ValueError("invalid composed CronJob")
+    return data
+
+
+def _compose_cloud_workloads(repo: Path, commit: str) -> dict[str, Any]:
+    if re.fullmatch(r"[0-9a-f]{40}", commit) is None:
+        raise CompositionUnavailable("release commit is not a verified Git SHA")
+    if not callable(getattr(tarfile, "data_filter", None)):
+        raise CompositionUnavailable("safe tar extraction is unavailable in this Python")
+    source = VUORO_CLOUD["flux_source_file"]
+    raw = subprocess.run(["git", "-C", str(repo), "show", f"{commit}:{source}"],
+                         stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                         check=False, timeout=30)
+    if raw.returncode:
+        raise CompositionUnavailable("cannot read the Flux application spec at the release commit")
+    root = _cloud_app_root(raw.stdout.decode("utf-8"))
+    archive = subprocess.run(["git", "-C", str(repo), "archive", commit, "--",
+                              VUORO_CLOUD["apps_dir"], str(root)],
+                             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                             check=False, timeout=30)
+    if archive.returncode:
+        raise CompositionUnavailable("cannot export the Flux application tree at the release commit")
+    with tempfile.TemporaryDirectory(prefix="estate-cloud-apps-") as tmp:
+        tree = Path(tmp).resolve()
+        with tarfile.open(fileobj=io.BytesIO(archive.stdout), mode="r:") as exported:
+            exported.extractall(tree, filter=_regular_archive_member)
+        _check_local_kustomizations(tree, tree / root)
+        rendered = subprocess.run(
+            ["kubectl", "kustomize", str(tree / root), "--enable-alpha-plugins=false",
+             "--enable-helm=false", "--load-restrictor=LoadRestrictionsRootOnly"], cwd=tree,
+            env={**os.environ, "GIT_ALLOW_PROTOCOL": "", "KUBECONFIG": os.devnull},
+            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            check=False, timeout=45)
+        if rendered.returncode:
+            raise CompositionUnavailable("local Kustomize application build failed")
+        # Parse before Probe redacts text and before any recording. No raw rendered
+        # manifest, stderr, YAML parser error, Secret, or env data leaves this function.
+        try:
+            docs = yaml_docs(rendered.stdout.decode("utf-8"))
+            workload_docs = [doc for doc in docs if doc.get("kind") in ("Deployment", "CronJob")]
+            identities = [(doc["kind"], doc["metadata"]["name"]) for doc in workload_docs]
+            if len(set(identities)) != len(identities):
+                raise ValueError("workload names are ambiguous")
+            workloads = _declared_workload_docs((str(root), doc) for doc in workload_docs)
+            if not workloads["deployments"] or any(not dep["images"] for dep in workloads["deployments"].values()):
+                raise ValueError("missing deployments or images")
+        except Exception as error:
+            raise CompositionUnavailable("composed application workload inventory is incomplete") from error
+        return {"deployments": {
+            name: {field: deploy[field] for field in ("replicas", "images")}
+            for name, deploy in workloads["deployments"].items()
+        }, "cronjobs": {
+            name: {"suspend": cron["suspend"]} for name, cron in workloads["cronjobs"].items()
+        }}
 
 
 # ---------------------------------------------------------------- kubectl
@@ -1577,14 +1747,15 @@ def collect_vuoro_cloud(probe: Probe, *, fetch: bool,
         desired["predicted_release_tag_tree_current"] = tree
         if is_known(tree):
             ref = f"refs/tags/{tag}"
-            files = manifest_files(probe, "vuoro-cloud.manifests", repo, ref, (cfg["apps_dir"],))
-            if is_known(files):
-                declared = declared_workloads(files["value"])
+            composition = probe.cloud_app_workloads(
+                "vuoro-cloud.composed-app-workloads", repo, desired["predicted_release_tag_sha"]["value"])
+            declared_fact = from_probe(composition, "artifact", _read_composed_workloads)
+            if is_known(declared_fact):
+                declared = declared_fact["value"]
                 desired["deployments"] = known(
-                    {n: {"replicas": v["replicas"], "images": v["images"]}
-                     for n, v in declared["deployments"].items()}, "artifact", files["evidence"], at)
+                    declared["deployments"], "artifact", declared_fact["evidence"], at)
             else:
-                desired["deployments"] = _carry(files, "artifact")
+                desired["deployments"] = declared_fact
             compat = git(probe, "vuoro-cloud.compat", repo, "show", f"{ref}:config/compatibility.json")
             desired["compatibility"] = from_probe(compat, "artifact", lambda r: json.loads(r["stdout"]))
             mirror = git(probe, "vuoro-cloud.compat-mirror", repo, "show",

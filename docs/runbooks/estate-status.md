@@ -73,7 +73,9 @@ agentops estate status --replay DIR         # answer every probe from fixtures (
 ```
 
 Read-only guarantees:
-- kubectl is refused for any verb other than `get` or `version`.
+- Cluster probes allow only kubectl `get` and `version`. The Cloud desired
+  workload probe uses `kubectl kustomize` on a private, local copy of the
+  verified release tree without cluster access or remote bases.
 - HTTP requests are GET only.
 - `--fetch` updates only remote-tracking refs.
 - Redaction happens before anything is printed, returned or recorded. It covers:
@@ -98,6 +100,11 @@ How it derives its answers:
 - **vuoro-cloud.**
   - The Flux semver constraint is read from the remote Flux actually watches (`github`), not the canonical remote.
   - The selected tag is labelled `predicted`. Flux's applied revision is the Kustomizations' `lastAppliedRevision`.
+  - Desired app workloads come from the release commit's `vuoro-cloud-apps`
+    Flux composition. The probe records deployment replicas and images and
+    CronJob suspension flags. Staged manifests outside the composition don't
+    affect the gate. A missing or failed composition probe, including old
+    replays recorded before this probe existed, leaves these facts unknown.
   - The report card builder runs from the tag's own tree.
 - **Freshness.** Each git-derived fact is timestamped with when its ref was last confirmed against the remote, not when the command ran.
 - **`--from`.** Rendering a saved report with `--from` prints its age.
