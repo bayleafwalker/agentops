@@ -13,6 +13,7 @@ import importlib.util
 import json
 import math
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -332,6 +333,8 @@ class ReplayedLiveRunTests(unittest.TestCase):
         self.assertEqual(d["predicted_release_tag"]["value"], "v0.1.0-poc.76")
         self.assertIn("selected (predicted)", d["predicted_release_tag"]["evidence"])
         self.assertTrue(d["predicted_release_tag_tree_current"]["value"])
+        self.assertEqual(d["deployments"]["status"], "unknown")
+        self.assertIn("no recorded fixture", d["deployments"]["reason"])
         self.assertEqual(d["previous_release_tag"]["value"], "v0.1.0-poc.75")
         self.assertIs(d["compatibility_discriminates"]["value"], False)
         self.assertIs(d["compatibility_mirror_agrees"]["value"], True)
@@ -513,6 +516,9 @@ def cloud_full_env(**overrides):
     env = env_copy("vuoro-cloud")
     d, r, h, us = env["desired"], env["running"], env["held"], env["usable"]
     tag, sha = d["predicted_release_tag"]["value"], d["predicted_release_tag_sha"]["value"]
+    # The historical capture does not contain a composition probe. Explicitly
+    # supply the observed workload needed by these synthetic gate scenarios.
+    d["deployments"] = k({"vuoro-gateway": {"replicas": 1, "images": {"gateway": f"gateway@{OTHER}"}}})
     r["kustomizations"] = k({n: {"suspend": False, "ready": "True", "reason": "ReconciliationSucceeded",
                                  "last_applied_revision": f"{tag}@sha1:{sha}"}
                              for n in estate.VUORO_CLOUD["kustomizations"]})
@@ -528,6 +534,132 @@ def cloud_full_env(**overrides):
     r["tenant_runtime_pin"] = k(estate.digest_of(d["compatibility"]["value"]["packages"]["vuoro-service"]))
     us["fleet_rollout"]["value"]["converged"] = True
     return env
+
+
+class CloudCompositionTests(unittest.TestCase):
+    def make_release(self, repo: Path, *, resource="../../apps/active") -> str:
+        def write(relative, text):
+            path = repo / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, encoding="utf-8")
+
+        write(estate.VUORO_CLOUD["flux_source_file"], """apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata: {name: vuoro-cloud-apps, namespace: flux-system}
+spec:
+  path: ./clusters/app-release
+  sourceRef: {kind: GitRepository, name: vuoro-cloud}
+""")
+        write("clusters/app-release/kustomization.yaml", f"""apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources: [{resource}]
+replicas: [{{name: active, count: 3}}]
+""")
+        for name in ("active", "staged"):
+            write(f"apps/{name}/kustomization.yaml", """apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources: [deployment.yaml, secret.yaml]
+""")
+            write(f"apps/{name}/deployment.yaml", f"""apiVersion: apps/v1
+kind: Deployment
+metadata: {{name: {name}}}
+spec:
+  selector: {{matchLabels: {{app: {name}}}}}
+  template:
+    metadata: {{labels: {{app: {name}}}}}
+    spec:
+      containers:
+        - name: service
+          image: service@{OTHER}
+          env: [{{name: PASSWORD, value: fixture-not-for-recording}}]
+""")
+            write(f"apps/{name}/secret.yaml", """apiVersion: v1
+kind: Secret
+metadata: {name: test-secret}
+stringData: {opaque: fixture-not-for-recording}
+""")
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        subprocess.run(["git", "-C", str(repo), "add", "--", "."], check=True)
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=Fixture",
+                        "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgSign=false",
+                        "commit", "-qm", "fixture"], check=True)
+        return subprocess.check_output(["git", "-C", str(repo), "rev-parse", "HEAD"],
+                                       text=True).strip()
+
+    @unittest.skipUnless(shutil.which("kubectl"), "local Kustomize renderer unavailable")
+    def test_composition_uses_pinned_root_and_keeps_only_effective_workloads(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = root / "source"
+            sha = self.make_release(repo)
+            # Uncommitted changes are not source evidence.
+            (repo / "clusters/app-release/kustomization.yaml").write_text("invalid: worktree")
+            record = root / "fixtures"
+            fact = estate.Probe(record=record).cloud_app_workloads("composition", repo, sha)
+            self.assertTrue(fact["ok"], fact.get("error"))
+            value = estate._read_composed_workloads(fact)
+            self.assertEqual(value, {"deployments": {
+                "active": {"replicas": 3, "images": {"service": f"service@{OTHER}"}},
+            }, "cronjobs": {}})
+            self.assertNotIn("fixture-not-for-recording", (record / "composition.json").read_text())
+
+    def test_missing_safe_archive_support_is_unknown_without_running_commands(self):
+        with mock.patch.object(estate.tarfile, "data_filter", None), \
+             mock.patch.object(estate.subprocess, "run") as run:
+            fact = estate.Probe().cloud_app_workloads("composition", Path("."), "a" * 40)
+        self.assertFalse(fact["ok"])
+        self.assertIn("safe tar extraction", fact["error"])
+        run.assert_not_called()
+
+    def test_external_base_fails_before_renderer_execution(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "source"
+            sha = self.make_release(repo, resource="https://example.invalid/repo/manifests")
+            run = estate.subprocess.run
+            with mock.patch.object(estate.subprocess, "run", wraps=run) as traced:
+                fact = estate.Probe().cloud_app_workloads("composition", repo, sha)
+            self.assertFalse(fact["ok"])
+            self.assertIn("complete local tree", fact["error"])
+            self.assertEqual([call.args[0][0] for call in traced.call_args_list], ["git", "git"])
+
+    def test_renderer_failure_cannot_record_manifest_text(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = root / "source"
+            sha = self.make_release(repo)
+            run = estate.subprocess.run
+
+            def run_with_failed_renderer(argv, **kwargs):
+                if argv[0] == "kubectl":
+                    return subprocess.CompletedProcess(argv, 1, stdout=b"fixture-not-for-recording",
+                                                       stderr=b"fixture-not-for-recording")
+                return run(argv, **kwargs)
+
+            record = root / "fixtures"
+            with mock.patch.object(estate.subprocess, "run", side_effect=run_with_failed_renderer):
+                fact = estate.Probe(record=record).cloud_app_workloads("composition", repo, sha)
+            self.assertFalse(fact["ok"])
+            self.assertEqual(fact["error"], "local Kustomize application build failed")
+            self.assertNotIn("fixture-not-for-recording", (record / "composition.json").read_text())
+
+    def test_replayed_composition_feeds_desired_and_empty_evidence_is_unknown(self):
+        for deployments, expected in (({"active": {"replicas": 3, "images": {"service": "service"}}},
+                                       "known"), ({}, "unknown")):
+            with self.subTest(expected=expected), tempfile.TemporaryDirectory() as tmp:
+                record = Path(tmp)
+                for path in FIXTURES.iterdir():
+                    (record / path.name).write_text(path.read_text())
+                (record / "vuoro-cloud.composed-app-workloads.json").write_text(json.dumps({
+                    "ok": True, "stdout": json.dumps({"deployments": deployments, "cronjobs": {}}),
+                    "evidence": "composed fixture", "observed_at": T,
+                }))
+                env = by_id(replay(["vuoro-cloud"], directory=record))["vuoro-cloud"]
+                fact = env["desired"]["deployments"]
+                self.assertEqual(fact["status"], expected)
+                if expected == "known":
+                    self.assertEqual(fact["value"], deployments)
+                else:
+                    self.assertEqual(env["gate"]["next_blocking_gate"]["status"], "unknown")
 
 
 class VuoroCloudDerivationTests(unittest.TestCase):
